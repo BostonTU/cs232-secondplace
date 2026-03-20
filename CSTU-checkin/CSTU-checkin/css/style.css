@@ -1938,8 +1938,7 @@ textarea.input-field {
 }
 
 .notif-panel-header {
-  padding: 20px 20px 16px;
-  border-bottom: 1px solid var(--g200);
+  padding: 16px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1973,25 +1972,46 @@ textarea.input-field {
 
 .notif-tabs {
   display: flex;
-  border-bottom: 1px solid var(--g200);
+  position: relative;
   flex-shrink: 0;
+  border-bottom: 1px solid var(--g200);
+}
+
+.notif-tabs::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 50%;
+  height: 2px;
+  background: var(--y);
+  border-radius: 2px 2px 0 0;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.notif-tabs.tab-unread::after {
+  transform: translateX(100%);
 }
 
 .notif-tab {
   flex: 1;
-  padding: 10px;
+  padding: 12px 10px;
   text-align: center;
   font-size: 13px;
   font-weight: 600;
   color: var(--g500);
   cursor: pointer;
-  border-bottom: 2px solid transparent;
-  transition: all .15s;
+  background: none;
+  border: none;
+  transition: color 0.25s ease;
+}
+
+.notif-tab:hover {
+  color: var(--g700);
 }
 
 .notif-tab.active {
   color: var(--y-dark);
-  border-bottom-color: var(--y);
 }
 
 .notif-body {

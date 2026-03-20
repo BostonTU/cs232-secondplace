@@ -1189,12 +1189,11 @@
       <div class="notif-panel" id="notif-panel">
         <div class="notif-panel-header">
           <div class="notif-panel-title">🔔 การแจ้งเตือน</div>
-          <div class="notif-tabs">
-            <button class="notif-tab active" onclick="switchNotifTab('all',this)">ทั้งหมด</button>
-            <button class="notif-tab" onclick="switchNotifTab('unread',this)">ยังไม่อ่าน</button>
-          </div>
-          <button onclick="closeNotifPanel()"
-            style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--g500);">✕</button>
+          <button class="notif-close" onclick="closeNotifPanel()">✕</button>
+        </div>
+        <div class="notif-tabs" id="notif-tabs">
+          <button class="notif-tab active" onclick="switchNotifTab('all',this)">ทั้งหมด</button>
+          <button class="notif-tab" onclick="switchNotifTab('unread',this)">ยังไม่อ่าน</button>
         </div>
         <div class="notif-body" id="notif-body"></div>
       </div>

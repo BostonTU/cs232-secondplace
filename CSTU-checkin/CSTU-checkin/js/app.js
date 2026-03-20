@@ -284,6 +284,9 @@ function updateNotifBadge() {
 
 function openNotifPanel() {
   renderNotifs('all');
+  document.querySelectorAll('.notif-tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+  const tabs = document.getElementById('notif-tabs');
+  if (tabs) tabs.classList.remove('tab-unread');
   document.getElementById('notif-panel').classList.add('open');
   document.getElementById('notif-overlay').classList.add('open');
   notifPanelOpen = true;
@@ -298,7 +301,14 @@ function closeNotifPanel() {
 function switchNotifTab(type, el) {
   document.querySelectorAll('.notif-tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
-  renderNotifs(type);
+  const tabs = document.getElementById('notif-tabs');
+  if (tabs) tabs.classList.toggle('tab-unread', type === 'unread');
+  const body = document.getElementById('notif-body');
+  body.style.cssText = 'opacity:0;transform:translateY(4px);transition:opacity .15s ease,transform .15s ease;';
+  setTimeout(() => {
+    renderNotifs(type);
+    body.style.cssText = 'opacity:1;transform:translateY(0);transition:opacity .15s ease,transform .15s ease;';
+  }, 150);
 }
 
 function renderNotifs(filter) {
