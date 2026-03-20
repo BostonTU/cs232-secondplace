@@ -641,12 +641,14 @@ function refreshQR() {
 ══════════════════════════════════════ */
 function startTimer(elId, secs) {
   let t = secs;
-  setInterval(() => {
+  const update = () => {
     const el = document.getElementById(elId);
     if (!el) return;
-    t = t > 0 ? t - 1 : 300;
     el.textContent = Math.floor(t/60) + ':' + String(t%60).padStart(2,'0');
-  }, 1000);
+    t = t > 0 ? t - 1 : 300;
+  };
+  update();
+  setInterval(update, 1000);
 }
 function startTimers() {
   startTimer('qr-cd', 292);
