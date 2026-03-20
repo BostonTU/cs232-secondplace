@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AttendX — ระบบเช็คชื่อ</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+  <!-- ═══════════════════════════════════════
+     📄 pages/login.html
+═══════════════════════════════════════ -->
+  <!-- ══════════════════════════════════════
+     LOGIN SCREEN
+══════════════════════════════════════ -->
+  <div id="role-screen">
+    <div class="login-wrap">
+      <!-- Left panel -->
+      <div class="login-left">
+        <div class="login-brand">Attend<span>X</span></div>
+        <div class="login-brand-sub">ระบบเช็คชื่อนักศึกษา<br>มหาวิทยาลัยธรรมศาสตร์</div>
+        <div class="login-features">
+          <div class="login-feat-item"><span>✅</span> เช็คชื่อด้วย QR Code</div>
+          <div class="login-feat-item"><span>📊</span> ดูสถิติการเข้าเรียน</div>
+          <div class="login-feat-item"><span>📋</span> ขอใบลาออนไลน์</div>
+          <div class="login-feat-item"><span>🔔</span> แจ้งเตือนแบบ Real-time</div>
+        </div>
+      </div>
+      <!-- Right panel: Login Form -->
+      <div class="login-right">
+        <div class="login-form-box">
+          <!-- Role tabs -->
+          <div class="login-role-tabs">
+            <button class="login-role-tab active" id="tab-student" onclick="switchLoginRole('student')">🎓
+              นักศึกษา</button>
+            <button class="login-role-tab" id="tab-professor" onclick="switchLoginRole('professor')">👨‍🏫
+              อาจารย์</button>
+          </div>
+          <div class="login-title" id="login-title">เข้าสู่ระบบ นักศึกษา</div>
+          <div class="login-sub" id="login-sub">กรอกรหัสนักศึกษาและรหัสผ่าน</div>
+          <!-- Error -->
+          <div class="login-error" id="login-error" style="display:none;">
+            <span>⚠️</span><span id="login-error-text">ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง</span>
+          </div>
+          <!-- Username -->
+          <div class="login-field-wrap">
+            <label class="login-field-label" id="label-username">รหัสนักศึกษา</label>
+            <div class="login-input-row">
+              <span class="login-input-icon">👤</span>
+              <input class="login-input" id="input-username" type="text" placeholder="เช่น 6401234567"
+                autocomplete="username">
+            </div>
+          </div>
+          <!-- Password -->
+          <div class="login-field-wrap">
+            <label class="login-field-label">รหัสผ่าน</label>
+            <div class="login-input-row">
+              <span class="login-input-icon">🔒</span>
+              <input class="login-input" id="input-password" type="password" placeholder="••••••••"
+                autocomplete="current-password" onkeydown="if(event.key==='Enter') doLogin()">
+              <span class="login-eye" onclick="togglePwd()">👁</span>
+            </div>
+          </div>
+          <div class="login-opts-row">
+            <label class="login-remember"><input type="checkbox" id="remember-me"> จำรหัสผ่าน</label>
+
+          </div>
+          <button class="login-btn" id="login-btn" onclick="doLogin()">
+            <span id="login-btn-text">เข้าสู่ระบบ</span>
+            <span id="login-btn-spinner" style="display:none;">⏳</span>
+          </button>
+          <div class="login-version">AttendX v2.0 • TU Department of CS</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+     🏠 APP SHELL (Topbar + Sidebar)
+═══════════════════════════════════════ -->
+  <div id="app">
+    <div class="topbar">
+      <button class="topbar-btn menu-btn" onclick="toggleSidebar()" style="margin-right:10px;">☰</button>
+      <div class="topbar-logo">Attend<span>X</span></div>
+      <span class="topbar-role-badge badge-student" id="role-badge">นักศึกษา</span>
+      <div class="topbar-btn" onclick="openNotifPanel()">🔔<div class="notif-dot" id="notif-dot-main">3</div>
+      </div>
+      <div class="topbar-btn" onclick="backToRole()">🚪</div>
+    </div>
+
+    <div class="app-body">
+      <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+      <div class="sidebar" id="sidebar">
+        <div class="sidebar-inner" id="sidebar-nav"></div>
+        <div class="sidebar-footer">
+          <div class="user-row">
+            <div class="user-avatar" id="user-avatar">กต</div>
+            <div>
+              <div class="user-name" id="user-name">ผู้ใช้งาน</div>
+              <div class="user-role-text" id="user-role-text">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="main" id="main-content">
+
+        <!-- ═══════════════════════════════════════
+           📄 pages/student-checkin.html
+      ═══════════════════════════════════════ -->
+        <div class="page-content" id="page-checkin">
+          <div class="page-header">
+            <div class="page-title">✅ Check-In</div>
+            <div class="page-sub">วันพุธที่ 19 มีนาคม 2568 • 09:31 น.</div>
+          </div>
+
+          <!-- STATE 1: รอสแกน QR (แสดงตอนแรก) -->
+          <div id="state-waiting">
+            <div class="checkin-grid">
+              <!-- Left: ข้อมูลนักศึกษา -->
+              <div>
+                <div class="id-card">
+                  <span class="id-badge">Active</span>
+                  <div class="id-label">Student ID</div>
+                  <div class="id-num">6401234567</div>
+                  <div class="id-name">นายกิตติบดินทร์ เฮงมงคลศักดิ์</div>
+                </div>
+                <div class="card course-card">
+                  <div class="course-code"><span class="chip chip-yellow">CS301</span></div>
+                  <div class="course-name-text">Web Application Development</div>
+                  <div class="course-meta-row">
+                    <div class="course-meta-item">🕘 09:00–12:00 น.</div>
+                    <div class="course-meta-item">📍 ห้อง SC-301</div>
+                    <div class="course-meta-item">👤 อ.สมชาย ใจดี</div>
+                  </div>
+                </div>
+                <div class="loc-bar">
+                  <div class="loc-dot"></div>
+                  <div>
+                    <div class="loc-text">ยืนยันตำแหน่งแล้ว ✓</div>
+                    <div class="loc-sub">อยู่ในรัศมี 50 เมตร จากห้องเรียน</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right: รอสแกน QR -->
+              <div class="card" style="text-align:center;padding:32px 24px;">
+                <div
+                  style="width:100px;height:100px;margin:0 auto 20px;background:var(--y-mid);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:44px;">
+                  📷</div>
+                <div
+                  style="font-family:'Prompt',sans-serif;font-size:18px;font-weight:700;color:var(--g900);margin-bottom:8px;">
+                  สแกน QR Code จากอาจารย์</div>
+                <div style="font-size:13px;color:var(--g500);margin-bottom:24px;line-height:1.6;">ขอให้อาจารย์เปิดหน้า
+                  QR Generator<br>แล้วสแกน QR ด้วยกล้องมือถือ</div>
+
+                <button class="btn btn-primary btn-full" onclick="openQRScanner()"
+                  style="margin-bottom:12px;font-size:15px;padding:16px;">
+                  📷 &nbsp;เปิดกล้องสแกน QR
+                </button>
+
+                <div style="font-size:12px;color:var(--g400);margin:8px 0;">— หรือกรอก Session ID —</div>
+                <div style="display:flex;gap:8px;">
+                  <input class="input-field" id="manual-session-input" type="text" placeholder="เช่น CS301-ABC12345"
+                    style="flex:1;font-size:13px;">
+                  <button class="btn btn-outline" onclick="submitManualSession()"
+                    style="white-space:nowrap;padding:11px 16px;font-size:13px;">ยืนยัน</button>
+                </div>
+
+                <div id="scan-error"
+                  style="display:none;margin-top:12px;background:var(--red-light);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--red);text-align:left;">
+                  ⚠️ <span id="scan-error-text">QR ไม่ถูกต้องหรือหมดอายุแล้ว</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- STATE 2: ยืนยันการเช็คอิน (หลังสแกน QR สำเร็จ) -->
+          <div id="state-confirm" style="display:none;">
+            <div class="checkin-grid">
+              <div>
+                <div class="id-card">
+                  <span class="id-badge">Active</span>
+                  <div class="id-label">Student ID</div>
+                  <div class="id-num">6401234567</div>
+                  <div class="id-name">นายกิตติบดินทร์ เฮงมงคลศักดิ์</div>
+                </div>
+                <div class="card course-card">
+                  <div class="course-code"><span class="chip chip-yellow">CS301</span></div>
+                  <div class="course-name-text">Web Application Development</div>
+                  <div class="course-meta-row">
+                    <div class="course-meta-item">🕘 09:00–12:00 น.</div>
+                    <div class="course-meta-item">📍 ห้อง SC-301</div>
+                  </div>
+                </div>
+                <div class="loc-bar">
+                  <div class="loc-dot"></div>
+                  <div>
+                    <div class="loc-text">ยืนยันตำแหน่งแล้ว ✓</div>
+                    <div class="loc-sub">อยู่ในรัศมี 50 เมตร จากห้องเรียน</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card" style="text-align:center;padding:32px 24px;">
+                <div
+                  style="display:inline-flex;align-items:center;gap:6px;background:var(--green-light);border-radius:20px;padding:6px 14px;font-size:13px;font-weight:700;color:var(--green);margin-bottom:20px;">
+                  <div style="width:8px;height:8px;background:var(--green);border-radius:50%;"></div>
+                  สแกน QR สำเร็จแล้ว ✓
+                </div>
+                <div
+                  style="background:var(--g100);border-radius:var(--r-sm);padding:14px;margin-bottom:20px;text-align:left;">
+                  <div
+                    style="font-size:11px;font-weight:700;color:var(--g500);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">
+                    Session ID ที่สแกนได้</div>
+                  <div style="font-family:'Prompt',sans-serif;font-size:16px;font-weight:700;color:var(--g900);"
+                    id="confirm-session-id">CS301-XXXXXXXX</div>
+                  <div style="font-size:12px;color:var(--g400);margin-top:4px;" id="confirm-session-time">สแกนเมื่อ: —
+                  </div>
+                </div>
+                <div style="font-size:14px;color:var(--g600);margin-bottom:24px;">กดปุ่มด้านล่างเพื่อยืนยันการเข้าเรียน
+                </div>
+                <button class="btn btn-primary btn-full" onclick="doCheckin()"
+                  style="margin-bottom:12px;font-size:15px;padding:16px;">
+                  ✓ &nbsp;ยืนยันการเช็คอิน
+                </button>
+                <button class="btn btn-outline btn-full" onclick="cancelScan()">← สแกนใหม่</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- STATE 3: สำเร็จ -->
+          <div class="success-overlay" id="state-success">
+            <div class="success-tick">✅</div>
+            <div class="success-title">เช็คอินสำเร็จ!</div>
+            <div class="success-course">CS301 — Web Application Development</div>
+            <div class="success-time-big" id="success-time-val">09:31:07</div>
+            <div class="success-date-sm">วันพุธที่ 19 มีนาคม 2568</div>
+            <div style="margin-top:12px;">
+              <div style="font-size:12px;color:var(--g500);margin-bottom:4px;">Session ID</div>
+              <div style="font-family:'Prompt',sans-serif;font-size:14px;font-weight:700;color:var(--g700);"
+                id="success-session-id">CS301-XXXXXXXX</div>
+            </div>
+            <div style="margin-top:16px;">
+              <span class="chip chip-green" style="font-size:14px;padding:6px 16px;">🎉 เข้าเรียนตรงเวลา</span>
+            </div>
+            <button class="btn btn-outline" style="margin-top:20px;" onclick="resetCheckin()">← กลับหน้าหลัก</button>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════
+           📄 pages/student-leave.html
+      ═══════════════════════════════════════ -->
+        <div class="page-content" id="page-leave">
+          <div class="page-header">
+            <div class="page-title">📋 ขอใบลา</div>
+            <div class="page-sub">Leave Request Form</div>
+          </div>
+          <div class="leave-grid">
+            <!-- Form -->
+            <div class="card">
+              <div class="card-title">กรอกข้อมูลการลา</div>
+              <div class="input-wrap">
+                <label class="input-label">วิชา</label>
+                <select class="input-field">
+                  <option>CS301 — Web Application Development</option>
+                  <option>CS302 — Database Systems</option>
+                  <option>CS303 — Software Engineering</option>
+                </select>
+              </div>
+              <div class="input-wrap">
+                <label class="input-label">ประเภทการลา</label>
+                <select class="input-field">
+                  <option>ลาป่วย (Sick Leave)</option>
+                  <option>ลากิจ (Personal Leave)</option>
+                  <option>ลาฉุกเฉิน (Emergency Leave)</option>
+                </select>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div class="input-wrap">
+                  <label class="input-label">วันที่เริ่มลา</label>
+                  <input class="input-field" type="date" value="2025-03-19">
+                </div>
+                <div class="input-wrap">
+                  <label class="input-label">วันที่สิ้นสุด</label>
+                  <input class="input-field" type="date" value="2025-03-19">
+                </div>
+              </div>
+              <div class="input-wrap">
+                <label class="input-label">เหตุผลการลา</label>
+                <textarea class="input-field" rows="3" placeholder="ระบุเหตุผล..."></textarea>
+              </div>
+              <div class="input-wrap">
+                <label class="input-label">แนบเอกสาร (ถ้ามี)</label>
+                <div class="upload-box" onclick="this.style.borderColor='var(--y)'">
+                  <div class="upload-icon">📎</div>
+                  <div class="upload-hint"><strong>คลิกหรือลากไฟล์มาวาง</strong><br>PDF, JPG ไม่เกิน 5MB</div>
+                </div>
+              </div>
+              <button class="btn btn-primary btn-full" onclick="alert('ส่งคำขอลาแล้ว!')" style="margin-bottom:10px;">📤
+                ส่งคำขอลา</button>
+              <button class="btn btn-outline btn-full">ยกเลิก</button>
+            </div>
+
+            <!-- History -->
+            <div style="align-self:start;">
+              <div class="card">
+                <div class="card-title">ประวัติการขอลา</div>
+                <div style="overflow-x:auto;">
+                  <table class="leave-history-table">
+                    <thead>
+                      <tr>
+                        <th>วิชา</th>
+                        <th>วันที่</th>
+                        <th>ประเภท</th>
+                        <th>สถานะ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>
+                          <div style="font-weight:600;">CS301</div>
+                          <div style="font-size:12px;color:var(--g400);">Web Dev</div>
+                        </td>
+                        <td>15 มี.ค. 68</td>
+                        <td>ลาป่วย</td>
+                        <td><span class="chip chip-green">✓ อนุมัติ</span></td>
+                      </tr>
+                      <tr>
+                        <td>
+                          <div style="font-weight:600;">CS302</div>
+                          <div style="font-size:12px;color:var(--g400);">Database</div>
+                        </td>
+                        <td>10 มี.ค. 68</td>
+                        <td>ลากิจ</td>
+                        <td><span class="chip chip-yellow">⏳ รออนุมัติ</span></td>
+                      </tr>
+                      <tr>
+                        <td>
+                          <div style="font-weight:600;">CS303</div>
+                          <div style="font-size:12px;color:var(--g400);">SE</div>
+                        </td>
+                        <td>5 มี.ค. 68</td>
+                        <td>ลากิจ</td>
+                        <td><span class="chip chip-red">✗ ไม่อนุมัติ</span></td>
+                      </tr>
+                      <tr>
+                        <td>
+                          <div style="font-weight:600;">CS301</div>
+                          <div style="font-size:12px;color:var(--g400);">Web Dev</div>
+                        </td>
+                        <td>1 มี.ค. 68</td>
+                        <td>ลาป่วย</td>
+                        <td><span class="chip chip-green">✓ อนุมัติ</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════
+           📄 pages/student-status.html
+      ═══════════════════════════════════════ -->
+        <div class="page-content" id="page-status">
+          <div class="page-header">
+            <div class="page-title">📊 สถิติการเข้าเรียน</div>
+            <div class="page-sub">ภาคการศึกษา 1/2568</div>
+          </div>
+
+          <div class="status-top">
+            <!-- Ring -->
+            <div class="ring-card">
+              <div class="ring-course">CS301 — Web Application Dev</div>
+              <div class="ring-title">อัตราการเข้าเรียน</div>
+              <div class="ring-wrap">
+                <svg class="ring-svg" viewBox="0 0 140 140">
+                  <circle class="ring-track" cx="70" cy="70" r="55" />
+                  <circle class="ring-fill" cx="70" cy="70" r="55" />
+                </svg>
+                <div class="ring-inner">
+                  <div class="ring-pct">84%</div>
+                  <div class="ring-lbl">เข้าเรียน</div>
+                </div>
+              </div>
+              <div style="font-size:13px;color:rgba(255,255,255,0.5);">21 จาก 25 ครั้ง</div>
+            </div>
+            <!-- Right side -->
+            <div style="align-self:start;">
+              <div class="stat-pills">
+                <div class="stat-pill sp-green">
+                  <div class="stat-pill-num">21</div>
+                  <div class="stat-pill-label">มาเรียน</div>
+                </div>
+                <div class="stat-pill sp-yellow">
+                  <div class="stat-pill-num">2</div>
+                  <div class="stat-pill-label">สาย</div>
+                </div>
+                <div class="stat-pill sp-red">
+                  <div class="stat-pill-num">2</div>
+                  <div class="stat-pill-label">ขาด</div>
+                </div>
+              </div>
+              <div class="warn-bar">
+                <span style="font-size:22px;flex-shrink:0;">⚠️</span>
+                <div class="warn-text">
+                  <strong>ใกล้เกณฑ์ขั้นต่ำ!</strong>
+                  <span>ต้องเข้าเรียนอีก 2 ครั้ง เพื่อรักษาสิทธิ์สอบปลายภาค</span>
+                </div>
+              </div>
+              <div class="card" style="padding:16px;">
+                <div style="font-size:13px;font-weight:600;color:var(--g600);margin-bottom:10px;">เปรียบเทียบรายวิชา
+                </div>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                  <div>
+                    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+                      <span>CS301 — Web Dev</span><span style="font-weight:700;color:var(--green);">84%</span>
+                    </div>
+                    <div class="pct-bar" style="height:7px;">
+                      <div class="pct-fill pf-g" style="width:84%;"></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+                      <span>CS302 — Database</span><span style="font-weight:700;color:var(--green);">92%</span>
+                    </div>
+                    <div class="pct-bar" style="height:7px;">
+                      <div class="pct-fill pf-g" style="width:92%;"></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+                      <span>CS303 — SE</span><span style="font-weight:700;color:var(--y-dark);">72%</span>
+                    </div>
+                    <div class="pct-bar" style="height:7px;">
+                      <div class="pct-fill pf-y" style="width:72%;"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- History list -->
+          <div class="section-header">
+            <div class="section-title">ประวัติล่าสุด</div>
+          </div>
+          <div class="history-list">
+            <div class="history-item">
+              <div class="h-dot dot-g"></div>
+              <div class="h-info">
+                <div class="h-course">CS301 — Web Dev</div>
+                <div class="h-date">19 มีนาคม 2568</div>
+              </div>
+              <div class="h-right">
+                <div class="h-time">09:31:07</div><span class="chip chip-green" style="font-size:11px;">มาเรียน</span>
+              </div>
+            </div>
+            <div class="history-item">
+              <div class="h-dot dot-y"></div>
+              <div class="h-info">
+                <div class="h-course">CS302 — Database</div>
+                <div class="h-date">18 มีนาคม 2568</div>
+              </div>
+              <div class="h-right">
+                <div class="h-time">13:07:22</div><span class="chip chip-yellow" style="font-size:11px;">สาย</span>
+              </div>
+            </div>
+            <div class="history-item">
+              <div class="h-dot dot-r"></div>
+              <div class="h-info">
+                <div class="h-course">CS303 — SE</div>
+                <div class="h-date">17 มีนาคม 2568</div>
+              </div>
+              <div class="h-right">
+                <div class="h-time">—</div><span class="chip chip-red" style="font-size:11px;">ขาด</span>
+              </div>
+            </div>
+            <div class="history-item">
+              <div class="h-dot dot-g"></div>
+              <div class="h-info">
+                <div class="h-course">CS301 — Web Dev</div>
+                <div class="h-date">16 มีนาคม 2568</div>
+              </div>
+              <div class="h-right">
+                <div class="h-time">09:00:58</div><span class="chip chip-green" style="font-size:11px;">มาเรียน</span>
+              </div>
+            </div>
+            <div class="history-item">
+              <div class="h-dot dot-g"></div>
+              <div class="h-info">
+                <div class="h-course">CS302 — Database</div>
+                <div class="h-date">15 มีนาคม 2568</div>
+              </div>
+              <div class="h-right">
+                <div class="h-time">13:01:44</div><span class="chip chip-green" style="font-size:11px;">มาเรียน</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════
+           📄 pages/professor-dashboard.html
+      ═══════════════════════════════════════ -->
+        <div class="page-content" id="page-prof-dash">
+          <div class="page-header">
+            <div class="page-title">🏠 Dashboard</div>
+            <div class="page-sub">ภาคเรียน 1/2568 • CS301 วันนี้</div>
+          </div>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-top-row">
+                <div class="stat-icon si-g">✅</div><span class="stat-trend tr-up">+2.1%</span>
+              </div>
+              <div class="stat-val">82%</div>
+              <div class="stat-lbl">อัตราเข้าเรียน</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-top-row">
+                <div class="stat-icon si-y">👥</div><span class="stat-trend tr-up">+3</span>
+              </div>
+              <div class="stat-val">41</div>
+              <div class="stat-lbl">เข้าเรียนวันนี้</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-top-row">
+                <div class="stat-icon si-r">❌</div><span class="stat-trend tr-dn">-1</span>
+              </div>
+              <div class="stat-val">5</div>
+              <div class="stat-lbl">ขาดเรียนวันนี้</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-top-row">
+                <div class="stat-icon si-b">📋</div><span class="stat-trend tr-up">new</span>
+              </div>
+              <div class="stat-val">3</div>
+              <div class="stat-lbl">ใบลารออนุมัติ</div>
+            </div>
+          </div>
+          <div class="section-header">
+            <div class="section-title">รายชื่อนักศึกษา</div>
+            <button class="btn btn-primary btn-sm" onclick="showPage('page-qr-gen')">▶ เริ่มเช็คชื่อ / QR</button>
+          </div>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>ชื่อ–นามสกุล</th>
+                  <th>รหัส</th>
+                  <th>สถานะ</th>
+                  <th>เวลา Check-In</th>
+                  <th>% เข้าเรียน</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <div class="td-name-main">กิตติบดินทร์ เฮงมงคลศักดิ์</div>
+                  </td>
+                  <td>
+                    <div class="td-id-sub">6401234567</div>
+                  </td>
+                  <td><span class="chip chip-green">✓ มาเรียน</span></td>
+                  <td>09:31:07</td>
+                  <td>
+                    <div>84%</div>
+                    <div class="pct-bar">
+                      <div class="pct-fill pf-g" style="width:84%"></div>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="td-name-main">ณิชารีย์ สุขใจ</div>
+                  </td>
+                  <td>
+                    <div class="td-id-sub">6401234568</div>
+                  </td>
+                  <td><span class="chip chip-yellow">⏰ สาย</span></td>
+                  <td>09:45:22</td>
+                  <td>
+                    <div>90%</div>
+                    <div class="pct-bar">
+                      <div class="pct-fill pf-g" style="width:90%"></div>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="td-name-main">ปิยะพงษ์ มีสุข</div>
+                  </td>
+                  <td>
+                    <div class="td-id-sub">6401234569</div>
+                  </td>
+                  <td><span class="chip chip-red">✗ ขาด</span></td>
+                  <td>—</td>
+                  <td>
+                    <div>68%</div>
+                    <div class="pct-bar">
+                      <div class="pct-fill pf-r" style="width:68%"></div>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="td-name-main">สุภาวดี รักเรียน</div>
+                  </td>
+                  <td>
+                    <div class="td-id-sub">6401234570</div>
+                  </td>
+                  <td><span class="chip chip-green">✓ มาเรียน</span></td>
+                  <td>09:28:44</td>
+                  <td>
+                    <div>96%</div>
+                    <div class="pct-bar">
+                      <div class="pct-fill pf-g" style="width:96%"></div>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="td-name-main">ธนวัฒน์ จิตดี</div>
+                  </td>
+                  <td>
+                    <div class="td-id-sub">6401234571</div>
+                  </td>
+                  <td><span class="chip chip-orange">📋 ลา</span></td>
+                  <td>—</td>
+                  <td>
+                    <div>76%</div>
+                    <div class="pct-bar">
+                      <div class="pct-fill pf-y" style="width:76%"></div>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════
+           📄 pages/professor-qr.html
+      ═══════════════════════════════════════ -->
+        <div class="page-content" id="page-qr-gen">
+          <div class="page-header">
+            <div class="page-title">📷 QR Generator</div>
+            <div class="page-sub">สร้าง QR Code สำหรับเช็คชื่อ</div>
+          </div>
+          <div class="qr-gen-grid">
+            <!-- QR Display -->
+            <div class="card qr-gen-card">
+              <div class="live-tag">
+                <div class="loc-dot" style="width:8px;height:8px;"></div>Session กำลังดำเนินอยู่
+              </div>
+              <div class="qr-gen-box">
+                <div id="qr-professor"
+                  style="display:flex;align-items:center;justify-content:center;width:200px;height:200px;"></div>
+              </div>
+              <div class="cd-wrap">
+                <svg class="cd-svg" viewBox="0 0 72 72">
+                  <circle class="cd-track" cx="36" cy="36" r="32" />
+                  <circle class="cd-fill" cx="36" cy="36" r="32" />
+                </svg>
+                <div class="cd-num" id="prof-cd">4:52</div>
+              </div>
+              <div style="font-size:12px;color:var(--g400);margin-bottom:16px;">หมดอายุอัตโนมัติ — รีเฟรชทุก 5 นาที
+              </div>
+              <div class="qr-actions">
+                <button class="btn btn-outline" style="flex:1;" onclick="alert('คัดลอก link แล้ว!')">🔗 คัดลอก
+                  Link</button>
+                <button class="btn btn-danger" style="flex:1;" onclick="alert('สิ้นสุด Session')">✕ จบ Session</button>
+              </div>
+            </div>
+
+            <!-- Session details + live feed -->
+            <div>
+              <div class="card session-detail-card" style="margin-bottom:16px;">
+                <div class="card-title">รายละเอียด Session</div>
+                <div class="sd-row">
+                  <div>
+                    <div class="sd-field-label">วิชา</div>
+                    <div class="sd-field-val">CS301 — Web Application Dev</div>
+                  </div>
+                  <div>
+                    <div class="sd-field-label">วันที่</div>
+                    <div class="sd-field-val">19 มี.ค. 2568</div>
+                  </div>
+                  <div>
+                    <div class="sd-field-label">เวลาเรียน</div>
+                    <div class="sd-field-val">09:00 – 12:00 น.</div>
+                  </div>
+                  <div>
+                    <div class="sd-field-label">ห้องเรียน</div>
+                    <div class="sd-field-val">SC-301</div>
+                  </div>
+                </div>
+                <div class="progress-section">
+                  <div class="prog-row">
+                    <span style="font-weight:600;color:var(--g700);">เช็คชื่อแล้ว</span>
+                    <span style="font-weight:700;color:var(--green);">41 / 46</span>
+                  </div>
+                  <div class="prog-bar">
+                    <div class="prog-fill"></div>
+                  </div>
+                  <div style="font-size:11px;color:var(--g400);margin-top:6px;">รอ 5 คน — อัปเดตอัตโนมัติทุก 10 วินาที
+                  </div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="live-feed-title">🟢 Live — เช็คอินล่าสุด</div>
+                <div class="live-feed">
+                  <div class="live-item">
+                    <div class="live-av">กต</div>
+                    <div class="live-name">กิตติบดินทร์ เฮงมงคลศักดิ์</div><span class="chip chip-green">09:31:07</span>
+                  </div>
+                  <div class="live-item">
+                    <div class="live-av">สภ</div>
+                    <div class="live-name">สุภาวดี รักเรียน</div><span class="chip chip-green">09:28:44</span>
+                  </div>
+                  <div class="live-item">
+                    <div class="live-av">ณช</div>
+                    <div class="live-name">ณิชารีย์ สุขใจ</div><span class="chip chip-yellow">09:45:22</span>
+                  </div>
+                  <div class="live-item">
+                    <div class="live-av">ปพ</div>
+                    <div class="live-name">ประพันธ์ ทองดี</div><span class="chip chip-green">09:22:11</span>
+                  </div>
+                  <div class="live-item">
+                    <div class="live-av">วร</div>
+                    <div class="live-name">วรรณา จันทร์ดี</div><span class="chip chip-green">09:15:03</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════
+           📄 pages/professor-analytics.html
+      ═══════════════════════════════════════ -->
+        <div class="page-content" id="page-analytics">
+          <div class="page-header">
+            <div class="page-title">📊 Analytics</div>
+            <div class="page-sub">สรุปการเข้าเรียน — ภาคเรียน 1/2568</div>
+          </div>
+          <div class="analytics-grid">
+            <!-- Pie -->
+            <div class="card pie-card">
+              <div class="card-title">สัดส่วนการเข้าเรียน</div>
+              <div class="pie-wrap">
+                <svg class="pie-svg" viewBox="0 0 150 150">
+                  <circle cx="75" cy="75" r="55" fill="none" stroke="#E5E7EB" stroke-width="22" />
+                  <circle cx="75" cy="75" r="55" fill="none" stroke="#16A34A" stroke-width="22"
+                    stroke-dasharray="282.7 63.3" stroke-dashoffset="86.4" transform="rotate(-90 75 75)" />
+                  <circle cx="75" cy="75" r="55" fill="none" stroke="#F5C400" stroke-width="22"
+                    stroke-dasharray="34.6 311.4" stroke-dashoffset="-196.3" transform="rotate(-90 75 75)" />
+                  <circle cx="75" cy="75" r="55" fill="none" stroke="#DC2626" stroke-width="22"
+                    stroke-dasharray="27.6 318.4" stroke-dashoffset="-230.9" transform="rotate(-90 75 75)" />
+                </svg>
+                <div class="pie-center">
+                  <div class="pie-pct">82%</div>
+                  <div class="pie-lbl">มาเรียน</div>
+                </div>
+              </div>
+              <div class="legend">
+                <div class="legend-item">
+                  <div class="legend-label">
+                    <div class="legend-dot" style="background:var(--green)"></div>มาเรียน
+                  </div>
+                  <div class="legend-val">82%</div>
+                </div>
+                <div class="legend-item">
+                  <div class="legend-label">
+                    <div class="legend-dot" style="background:var(--y)"></div>สาย
+                  </div>
+                  <div class="legend-val">10%</div>
+                </div>
+                <div class="legend-item">
+                  <div class="legend-label">
+                    <div class="legend-dot" style="background:var(--red)"></div>ขาด
+                  </div>
+                  <div class="legend-val">8%</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Bar chart -->
+            <div class="card">
+              <div
+                style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+                <div class="card-title" style="margin:0;">การเข้าเรียนรายสัปดาห์</div>
+                <div class="bar-legend">
+                  <div class="bar-legend-item">
+                    <div class="bl-dot" style="background:var(--green)"></div>มา
+                  </div>
+                  <div class="bar-legend-item">
+                    <div class="bl-dot" style="background:var(--y)"></div>สาย
+                  </div>
+                  <div class="bar-legend-item">
+                    <div class="bl-dot" style="background:var(--red)"></div>ขาด
+                  </div>
+                </div>
+              </div>
+              <div class="bar-chart">
+                <div class="bar-grp">
+                  <div class="bar-val">38</div>
+                  <div class="bar-col" style="background:var(--green);height:110px"></div>
+                  <div class="bar-col" style="background:var(--y);height:18px;margin-top:2px"></div>
+                  <div class="bar-col" style="background:var(--red);height:14px;margin-top:2px"></div>
+                  <div class="bar-day">จ.</div>
+                </div>
+                <div class="bar-grp">
+                  <div class="bar-val">41</div>
+                  <div class="bar-col" style="background:var(--green);height:125px"></div>
+                  <div class="bar-col" style="background:var(--y);height:10px;margin-top:2px"></div>
+                  <div class="bar-col" style="background:var(--red);height:8px;margin-top:2px"></div>
+                  <div class="bar-day">อ.</div>
+                </div>
+                <div class="bar-grp bar-today">
+                  <div class="bar-val" style="color:var(--y-dark);font-weight:700;">41</div>
+                  <div class="bar-col"
+                    style="background:var(--green);height:125px;outline:2px solid var(--y-dark);outline-offset:1px;border-radius:5px 5px 0 0;">
+                  </div>
+                  <div class="bar-col" style="background:var(--y);height:16px;margin-top:2px"></div>
+                  <div class="bar-col" style="background:var(--red);height:6px;margin-top:2px"></div>
+                  <div class="bar-day">พ.</div>
+                </div>
+                <div class="bar-grp">
+                  <div class="bar-val">36</div>
+                  <div class="bar-col" style="background:var(--green);height:105px"></div>
+                  <div class="bar-col" style="background:var(--y);height:22px;margin-top:2px"></div>
+                  <div class="bar-col" style="background:var(--red);height:18px;margin-top:2px"></div>
+                  <div class="bar-day">พฤ.</div>
+                </div>
+                <div class="bar-grp">
+                  <div class="bar-val">39</div>
+                  <div class="bar-col" style="background:var(--green);height:118px"></div>
+                  <div class="bar-col" style="background:var(--y);height:12px;margin-top:2px"></div>
+                  <div class="bar-col" style="background:var(--red);height:10px;margin-top:2px"></div>
+                  <div class="bar-day">ศ.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Summary table -->
+          <div class="section-header">
+            <div class="section-title">สรุปรายนักศึกษา</div>
+            <button class="btn btn-outline btn-sm" onclick="alert('Export CSV')">⬇ Export CSV</button>
+          </div>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>ชื่อ–นามสกุล</th>
+                  <th>มาเรียน</th>
+                  <th>สาย</th>
+                  <th>ขาด</th>
+                  <th>ลา</th>
+                  <th>% เข้าเรียน</th>
+                  <th>สถานะ</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <div class="td-name-main">กิตติบดินทร์ เฮงมงคลศักดิ์</div>
+                  </td>
+                  <td style="color:var(--green);font-weight:700">21</td>
+                  <td style="color:var(--y-dark);font-weight:700">2</td>
+                  <td style="color:var(--red);font-weight:700">2</td>
+                  <td>0</td>
+                  <td>
+                    <div>84%</div>
+                    <div class="pct-bar">
+                      <div class="pct-fill pf-g" style="width:84%"></div>
+                    </div>
+                  </td>
+                  <td><span class="chip chip-green">✓ ผ่าน</span></td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="td-name-main">สุภาวดี รักเรียน</div>
+                  </td>
+                  <td style="color:var(--green);font-weight:700">24</td>
+                  <td style="color:var(--y-dark);font-weight:700">0</td>
+                  <td style="color:var(--red);font-weight:700">0</td>
+                  <td>1</td>
+                  <td>
+                    <div>96%</div>
+                    <div class="pct-bar">
+                      <div class="pct-fill pf-g" style="width:96%"></div>
+                    </div>
+                  </td>
+                  <td><span class="chip chip-green">✓ ผ่าน</span></td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="td-name-main">ณิชารีย์ สุขใจ</div>
+                  </td>
+                  <td style="color:var(--green);font-weight:700">22</td>
+                  <td style="color:var(--y-dark);font-weight:700">1</td>
+                  <td style="color:var(--red);font-weight:700">1</td>
+                  <td>1</td>
+                  <td>
+                    <div>90%</div>
+                    <div class="pct-bar">
+                      <div class="pct-fill pf-g" style="width:90%"></div>
+                    </div>
+                  </td>
+                  <td><span class="chip chip-green">✓ ผ่าน</span></td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="td-name-main">ปิยะพงษ์ มีสุข</div>
+                  </td>
+                  <td style="color:var(--green);font-weight:700">17</td>
+                  <td style="color:var(--y-dark);font-weight:700">1</td>
+                  <td style="color:var(--red);font-weight:700">5</td>
+                  <td>2</td>
+                  <td>
+                    <div>68%</div>
+                    <div class="pct-bar">
+                      <div class="pct-fill pf-r" style="width:68%"></div>
+                    </div>
+                  </td>
+                  <td><span class="chip chip-red">⚠ เสี่ยง</span></td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="td-name-main">ธนวัฒน์ จิตดี</div>
+                  </td>
+                  <td style="color:var(--green);font-weight:700">19</td>
+                  <td style="color:var(--y-dark);font-weight:700">2</td>
+                  <td style="color:var(--red);font-weight:700">1</td>
+                  <td>3</td>
+                  <td>
+                    <div>76%</div>
+                    <div class="pct-bar">
+                      <div class="pct-fill pf-y" style="width:76%"></div>
+                    </div>
+                  </td>
+                  <td><span class="chip chip-yellow">⏳ เกณฑ์</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════
+           📄 pages/professor-leave.html
+      ═══════════════════════════════════════ -->
+        <div class="page-content" id="page-prof-leave">
+          <div class="page-header">
+            <div class="page-title">📋 จัดการใบลา</div>
+            <div class="page-sub">คำขอลาทั้งหมดที่รอการอนุมัติ</div>
+          </div>
+
+          <!-- Summary chips -->
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;">
+            <div class="card"
+              style="padding:14px 20px;display:flex;align-items:center;gap:10px;flex:1;min-width:140px;">
+              <span style="font-size:22px;">⏳</span>
+              <div>
+                <div style="font-family:'Prompt',sans-serif;font-size:22px;font-weight:700;" id="count-pending">3</div>
+                <div style="font-size:12px;color:var(--g500);">รออนุมัติ</div>
+              </div>
+            </div>
+            <div class="card"
+              style="padding:14px 20px;display:flex;align-items:center;gap:10px;flex:1;min-width:140px;">
+              <span style="font-size:22px;">✅</span>
+              <div>
+                <div style="font-family:'Prompt',sans-serif;font-size:22px;font-weight:700;color:var(--green);">8</div>
+                <div style="font-size:12px;color:var(--g500);">อนุมัติแล้ว</div>
+              </div>
+            </div>
+            <div class="card"
+              style="padding:14px 20px;display:flex;align-items:center;gap:10px;flex:1;min-width:140px;">
+              <span style="font-size:22px;">❌</span>
+              <div>
+                <div style="font-family:'Prompt',sans-serif;font-size:22px;font-weight:700;color:var(--red);">2</div>
+                <div style="font-size:12px;color:var(--g500);">ไม่อนุมัติ</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filter -->
+          <div class="leave-filter-bar">
+            <span style="font-size:13px;font-weight:600;color:var(--g600);">กรอง:</span>
+            <button class="filter-btn active" onclick="filterLeave('all',this)">ทั้งหมด</button>
+            <button class="filter-btn" onclick="filterLeave('pending',this)">⏳ รออนุมัติ</button>
+            <button class="filter-btn" onclick="filterLeave('approved',this)">✅ อนุมัติแล้ว</button>
+            <button class="filter-btn" onclick="filterLeave('rejected',this)">❌ ไม่อนุมัติ</button>
+          </div>
+
+          <!-- Leave cards -->
+          <div class="leave-cards" id="leave-cards-container">
+
+            <!-- Card 1 — pending (unread) -->
+            <div class="leave-request-card unread-card" data-status="pending" id="lrc-1">
+              <div class="lrc-header">
+                <div class="lrc-avatar">กต</div>
+                <div style="flex:1;">
+                  <div class="lrc-student-name">กิตติบดินทร์ เฮงมงคลศักดิ์</div>
+                  <div class="lrc-student-id">6401234567 • CS301 — Web Application Dev</div>
+                </div>
+                <span class="chip chip-yellow">⏳ รออนุมัติ</span>
+                <div style="width:8px;height:8px;background:var(--y);border-radius:50%;margin-left:8px;"></div>
+              </div>
+              <div class="lrc-body">
+                <div class="lrc-meta-grid">
+                  <div class="lrc-meta-item">
+                    <div class="lrc-meta-label">ประเภทการลา</div>
+                    <div class="lrc-meta-val">🤒 ลาป่วย</div>
+                  </div>
+                  <div class="lrc-meta-item">
+                    <div class="lrc-meta-label">วันที่ลา</div>
+                    <div class="lrc-meta-val">19 มี.ค. 2568</div>
+                  </div>
+                  <div class="lrc-meta-item">
+                    <div class="lrc-meta-label">ส่งเมื่อ</div>
+                    <div class="lrc-meta-val">วันนี้ 07:14</div>
+                  </div>
+                </div>
+                <div class="lrc-reason-box">
+                  "มีอาการไข้สูงและปวดหัว ไม่สามารถเข้าเรียนได้ในวันนี้ครับ มีใบรับรองแพทย์แนบมาด้วย"
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+                  <span style="font-size:12px;color:var(--blue);font-weight:600;cursor:pointer;">📎
+                    ใบรับรองแพทย์.pdf</span>
+                </div>
+                <div class="lrc-actions">
+                  <button class="lrc-btn-approve" onclick="approveLeave(1,'กิตติบดินทร์')">✓ อนุมัติ</button>
+                  <button class="lrc-btn-reject" onclick="rejectLeave(1,'กิตติบดินทร์')">✗ ไม่อนุมัติ</button>
+                  <button class="lrc-btn-detail">รายละเอียด</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 2 — pending (unread) -->
+            <div class="leave-request-card unread-card" data-status="pending" id="lrc-2">
+              <div class="lrc-header">
+                <div class="lrc-avatar" style="background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff;">ณช</div>
+                <div style="flex:1;">
+                  <div class="lrc-student-name">ณิชารีย์ สุขใจ</div>
+                  <div class="lrc-student-id">6401234568 • CS301 — Web Application Dev</div>
+                </div>
+                <span class="chip chip-yellow">⏳ รออนุมัติ</span>
+                <div style="width:8px;height:8px;background:var(--y);border-radius:50%;margin-left:8px;"></div>
+              </div>
+              <div class="lrc-body">
+                <div class="lrc-meta-grid">
+                  <div class="lrc-meta-item">
+                    <div class="lrc-meta-label">ประเภทการลา</div>
+                    <div class="lrc-meta-val">📝 ลากิจ</div>
+                  </div>
+                  <div class="lrc-meta-item">
+                    <div class="lrc-meta-label">วันที่ลา</div>
+                    <div class="lrc-meta-val">20 มี.ค. 2568</div>
+                  </div>
+                  <div class="lrc-meta-item">
+                    <div class="lrc-meta-label">ส่งเมื่อ</div>
+                    <div class="lrc-meta-val">เมื่อคืน 23:02</div>
+                  </div>
+                </div>
+                <div class="lrc-reason-box">
+                  "มีธุระสำคัญทางครอบครัว ต้องเดินทางไปต่างจังหวัดกับผู้ปกครอง"
+                </div>
+                <div class="lrc-actions">
+                  <button class="lrc-btn-approve" onclick="approveLeave(2,'ณิชารีย์')">✓ อนุมัติ</button>
+                  <button class="lrc-btn-reject" onclick="rejectLeave(2,'ณิชารีย์')">✗ ไม่อนุมัติ</button>
+                  <button class="lrc-btn-detail">รายละเอียด</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 3 — pending -->
+            <div class="leave-request-card unread-card" data-status="pending" id="lrc-3">
+              <div class="lrc-header">
+                <div class="lrc-avatar" style="background:linear-gradient(135deg,#6ee7b7,#059669);color:#fff;">ธว</div>
+                <div style="flex:1;">
+                  <div class="lrc-student-name">ธนวัฒน์ จิตดี</div>
+                  <div class="lrc-student-id">6401234571 • CS302 — Database Systems</div>
+                </div>
+                <span class="chip chip-yellow">⏳ รออนุมัติ</span>
+                <div style="width:8px;height:8px;background:var(--y);border-radius:50%;margin-left:8px;"></div>
+              </div>
+              <div class="lrc-body">
+                <div class="lrc-meta-grid">
+                  <div class="lrc-meta-item">
+                    <div class="lrc-meta-label">ประเภทการลา</div>
+                    <div class="lrc-meta-val">🚨 ลาฉุกเฉิน</div>
+                  </div>
+                  <div class="lrc-meta-item">
+                    <div class="lrc-meta-label">วันที่ลา</div>
+                    <div class="lrc-meta-val">19–20 มี.ค. 2568</div>
+                  </div>
+                  <div class="lrc-meta-item">
+                    <div class="lrc-meta-label">ส่งเมื่อ</div>
+                    <div class="lrc-meta-val">วันนี้ 06:55</div>
+                  </div>
+                </div>
+                <div class="lrc-reason-box">
+                  "สมาชิกครอบครัวเข้าโรงพยาบาลฉุกเฉิน ต้องดูแลอยู่กับครอบครัว 2 วัน"
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+                  <span style="font-size:12px;color:var(--blue);font-weight:600;cursor:pointer;">📎
+                    เอกสารโรงพยาบาล.jpg</span>
+                </div>
+                <div class="lrc-actions">
+                  <button class="lrc-btn-approve" onclick="approveLeave(3,'ธนวัฒน์')">✓ อนุมัติ</button>
+                  <button class="lrc-btn-reject" onclick="rejectLeave(3,'ธนวัฒน์')">✗ ไม่อนุมัติ</button>
+                  <button class="lrc-btn-detail">รายละเอียด</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 4 — already approved -->
+            <div class="leave-request-card" data-status="approved" id="lrc-4" style="opacity:0.75;">
+              <div class="lrc-header">
+                <div class="lrc-avatar" style="background:linear-gradient(135deg,#fcd34d,#d97706);color:#fff;">สภ</div>
+                <div style="flex:1;">
+                  <div class="lrc-student-name">สุภาวดี รักเรียน</div>
+                  <div class="lrc-student-id">6401234570 • CS301 — Web Application Dev</div>
+                </div>
+                <span class="chip chip-green">✓ อนุมัติแล้ว</span>
+              </div>
+              <div class="lrc-body">
+                <div class="lrc-meta-grid">
+                  <div class="lrc-meta-item">
+                    <div class="lrc-meta-label">ประเภทการลา</div>
+                    <div class="lrc-meta-val">🤒 ลาป่วย</div>
+                  </div>
+                  <div class="lrc-meta-item">
+                    <div class="lrc-meta-label">วันที่ลา</div>
+                    <div class="lrc-meta-val">15 มี.ค. 2568</div>
+                  </div>
+                  <div class="lrc-meta-item">
+                    <div class="lrc-meta-label">อนุมัติเมื่อ</div>
+                    <div class="lrc-meta-val" style="color:var(--green);">15 มี.ค. 10:30</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 5 — rejected -->
+            <div class="leave-request-card" data-status="rejected" id="lrc-5" style="opacity:0.75;">
+              <div class="lrc-header">
+                <div class="lrc-avatar" style="background:linear-gradient(135deg,#f87171,#dc2626);color:#fff;">ปย</div>
+                <div style="flex:1;">
+                  <div class="lrc-student-name">ปิยะพงษ์ มีสุข</div>
+                  <div class="lrc-student-id">6401234569 • CS303 — Software Engineering</div>
+                </div>
+                <span class="chip chip-red">✗ ไม่อนุมัติ</span>
+              </div>
+              <div class="lrc-body">
+                <div class="lrc-meta-grid">
+                  <div class="lrc-meta-item">
+                    <div class="lrc-meta-label">ประเภทการลา</div>
+                    <div class="lrc-meta-val">📝 ลากิจ</div>
+                  </div>
+                  <div class="lrc-meta-item">
+                    <div class="lrc-meta-label">วันที่ลา</div>
+                    <div class="lrc-meta-val">5 มี.ค. 2568</div>
+                  </div>
+                  <div class="lrc-meta-item">
+                    <div class="lrc-meta-label">เหตุผลปฏิเสธ</div>
+                    <div class="lrc-meta-val" style="color:var(--red);">เอกสารไม่ครบ</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div><!-- /main -->
+      </div><!-- /app-body -->
+
+      <!-- Notification Panel -->
+      <div class="notif-panel-overlay notif-overlay" id="notif-overlay" onclick="closeNotifPanel()"></div>
+      <div class="notif-panel" id="notif-panel">
+        <div class="notif-panel-header">
+          <div class="notif-panel-title">🔔 การแจ้งเตือน</div>
+          <div class="notif-tabs">
+            <button class="notif-tab active" onclick="switchNotifTab('all',this)">ทั้งหมด</button>
+            <button class="notif-tab" onclick="switchNotifTab('unread',this)">ยังไม่อ่าน</button>
+          </div>
+          <button onclick="closeNotifPanel()"
+            style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--g500);">✕</button>
+        </div>
+        <div class="notif-body" id="notif-body"></div>
+      </div>
+
+      <!-- Toast -->
+      <div id="toast-container"
+        style="position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:10px;"></div>
+
+    </div>
+  </div><!-- /app -->
+
+  <!-- ═══════════════════════════════════════
+     📄 js/app.js
+═══════════════════════════════════════ -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="js/app.js"></script>
+</body>
+
+</html>
