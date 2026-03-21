@@ -50,12 +50,10 @@ const TU_API = {
   BASE_URL: 'https://restapi.tu.ac.th',
   APP_KEY:  'YOUR_APPLICATION_KEY_HERE', // ← ใส่ Application-Key ที่ได้จาก restapi.tu.ac.th
 
-  // ดู Log การ Login ของ user
-  // status: true = login สำเร็จ, false = login ล้มเหลว
-  async getAuthLog(username, status = true, record = 10) {
+  // ── เช็คว่า username นี้มีในระบบ TU ไหม ──────────────────────────────────
+  async getAuthLog(username, status = true, record = 1) {
     const url = `${this.BASE_URL}/api/v1/auth/Log/auth/?status=${status}&username=${username}&record=${record}`;
     const res = await fetch(url, {
-      method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'Application-Key': this.APP_KEY
@@ -65,12 +63,25 @@ const TU_API = {
     return res.json();
   },
 
-  // ดู Log ตามวันที่
+  // ── ดึงข้อมูลโปรไฟล์นักศึกษาจากรหัสนักศึกษา ──────────────────────────────
+  // Response: { id, name_th, name_en, faculty, department, ... }
+  async getStudentProfile(studentId) {
+    const url = `${this.BASE_URL}/api/v2/profile/std/info/?id=${studentId}`;
+    const res = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Application-Key': this.APP_KEY
+      }
+    });
+    if (!res.ok) throw new Error('TU Profile API Error: ' + res.status);
+    return res.json();
+  },
+
+  // ── ดู Log ตามวันที่ ───────────────────────────────────────────────────────
   async getLogByDate(date, username = '', record = 10) {
     let url = `${this.BASE_URL}/api/v1/auth/Log/find/?date=${date}&record=${record}`;
     if (username) url += `&username=${username}`;
     const res = await fetch(url, {
-      method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'Application-Key': this.APP_KEY
@@ -120,46 +131,86 @@ async function doLogin() {
   errBox.style.display = 'none';
 
   try {
-    // ── ตรวจสอบผ่าน TU API ─────────────────────────────────────────────────
-    // เช็คว่า username นี้มี Log การ Login สำเร็จล่าสุดไหม
-    const logs = await TU_API.getAuthLog(username, true, 1);
-
-    if (!logs || logs.length === 0) {
-      // ไม่พบ Log → user ไม่มีในระบบ TU หรือยังไม่เคย login
-      throw new Error('ไม่พบบัญชีผู้ใช้ในระบบ TU กรุณาตรวจสอบรหัสผู้ใช้');
-    }
-
-    // พบ Log → login สำเร็จ
-    // ดึง username จาก Description เช่น "Login Success : thep_p"
-    const latestLog = logs[0];
-    const nameFromLog = latestLog.Description?.split(': ')[1] || username;
-
-    const user = {
-      name: nameFromLog,
-      id: username,
-      role: loginRole,
-      lastLogin: latestLog.CreateDate
-    };
-
-    // บันทึก session
-    sessionStorage.setItem('attendx_user', JSON.stringify(user));
-    sessionStorage.setItem('attendx_app_key', TU_API.APP_KEY);
-
-    enterApp(loginRole, user);
-
-  } catch (err) {
-    // ── ถ้า API Key ยังไม่ได้ใส่ หรือ CORS error → ใช้ Demo mode แทน ──────
-    if (TU_API.APP_KEY === 'YOUR_APPLICATION_KEY_HERE' || err.message.includes('fetch')) {
-      console.warn('⚠️ TU API ยังไม่ได้ตั้งค่า — ใช้ Demo mode แทน');
+    // ── Demo mode (ยังไม่มี APP_KEY) ─────────────────────────────────────────
+    if (TU_API.APP_KEY === 'YOUR_APPLICATION_KEY_HERE') {
+      console.warn('⚠️ TU API ยังไม่ได้ตั้งค่า APP_KEY — ใช้ Demo mode แทน');
       const user = {
         name: loginRole === 'student' ? `นักศึกษา (${username})` : `อาจารย์ (${username})`,
         id: username,
+        faculty: '',
         role: loginRole
       };
       enterApp(loginRole, user);
       return;
     }
-    errText.textContent = err.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่';
+
+    // ── Step 1: เช็คว่า username มีในระบบ TU ไหม ─────────────────────────────
+    document.getElementById('login-btn-text').textContent = 'กำลังตรวจสอบบัญชี...';
+    const logs = await TU_API.getAuthLog(username, true, 1);
+    if (!logs || logs.length === 0) {
+      throw new Error('ไม่พบบัญชีผู้ใช้ในระบบ TU กรุณาตรวจสอบรหัสผู้ใช้');
+    }
+
+    // ── Step 2: ดึงข้อมูลโปรไฟล์ (เฉพาะนักศึกษา) ────────────────────────────
+    let user = {
+      id: username,
+      role: loginRole,
+      name: username,   // default fallback
+      faculty: '',
+      department: ''
+    };
+
+    if (loginRole === 'student') {
+      document.getElementById('login-btn-text').textContent = 'กำลังโหลดข้อมูล...';
+      try {
+        const profile = await TU_API.getStudentProfile(username);
+        // ดึงชื่อภาษาไทยจาก profile
+        // Response อาจมีหลาย field เช่น name_th, displayname_th, NameTH
+        user.name       = profile.name_th
+                       || profile.displayname_th
+                       || profile.NameTH
+                       || profile.name
+                       || username;
+        user.faculty    = profile.faculty    || profile.Faculty    || '';
+        user.department = profile.department || profile.Department || '';
+        user.email      = profile.email      || '';
+      } catch (profileErr) {
+        // ถ้าดึง Profile ไม่ได้ ใช้ username แทน ไม่ต้อง error
+        console.warn('ไม่สามารถดึง Profile ได้:', profileErr.message);
+        user.name = username;
+      }
+    } else {
+      // อาจารย์: ดึงข้อมูลจาก Profile API เดียวกับนักศึกษา
+      document.getElementById('login-btn-text').textContent = 'กำลังโหลดข้อมูล...';
+      try {
+        const profile = await TU_API.getStudentProfile(username);
+        user.name       = profile.name_th
+                       || profile.displayname_th
+                       || profile.NameTH
+                       || profile.name
+                       || username;
+        user.faculty    = profile.faculty    || profile.Faculty    || '';
+        user.department = profile.department || profile.Department || '';
+        user.email      = profile.email      || '';
+      } catch (profileErr) {
+        // ถ้าดึง Profile ไม่ได้ ใช้ username แทน
+        console.warn('ไม่สามารถดึง Profile อาจารย์ได้:', profileErr.message);
+        user.name = username;
+      }
+    }
+
+    // บันทึก session
+    sessionStorage.setItem('attendx_user', JSON.stringify(user));
+
+    enterApp(loginRole, user);
+
+  } catch (err) {
+    // CORS error หรือ network error → แจ้งให้รู้
+    if (err.message.includes('fetch') || err.message.includes('Failed')) {
+      errText.textContent = 'ไม่สามารถเชื่อมต่อ TU API ได้ กรุณาตรวจสอบ APP_KEY หรือ network';
+    } else {
+      errText.textContent = err.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่';
+    }
     errBox.style.display = 'flex';
   } finally {
     btn.disabled = false;
@@ -174,11 +225,12 @@ function enterApp(role, user) {
   document.getElementById('app').classList.add('visible');
 
   // ── อัปเดต user info จาก login ──────────────────
-  const name = user?.name || (role === 'student' ? 'นักศึกษา' : 'อาจารย์');
-  const id   = user?.id   || '';
+  const name     = user?.name       || (role === 'student' ? 'นักศึกษา' : 'อาจารย์');
+  const id       = user?.id         || '';
+  const faculty  = user?.faculty    || '';
   const initials = name.substring(0, 2);
 
-  const badge = document.getElementById('role-badge');
+  const badge  = document.getElementById('role-badge');
   const avatar = document.getElementById('user-avatar');
 
   if (role === 'student') {
@@ -187,7 +239,10 @@ function enterApp(role, user) {
     avatar.textContent = initials;
     avatar.className = 'user-avatar';
     document.getElementById('user-name').textContent = name;
-    document.getElementById('user-role-text').textContent = 'นักศึกษา CS — ' + id;
+    // แสดง faculty ถ้ามี ถ้าไม่มีแสดงรหัสนักศึกษา
+    document.getElementById('user-role-text').textContent = faculty
+      ? `${faculty} — ${id}`
+      : `นักศึกษา — ${id}`;
   } else {
     badge.textContent = 'อาจารย์';
     badge.className = 'topbar-role-badge badge-professor';
