@@ -10,17 +10,17 @@ import com.example.demo.repository.StudentRepository;
 public class AuthService {
 
     @Autowired
-    StudentRepository studentRepository;
+    private StudentRepository studentRepository;
 
-    public Student login(String studentId,String password){
+    public Student login(String studentId, String password) {
 
-        Student student = studentRepository.findByStudentId(studentId);
+        // ตัวอย่าง logic ง่ายๆ
+        // ตอนนี้ยังไม่เช็ค password จริง
+        Student student = new Student();
+        student.setStudentId(studentId);
+        student.setName("Demo Student");
 
-        if(student != null && student.getPassword().equals(password)){
-            return student;
-        }
-
-        return null;
+        return student;
     }
 
 }

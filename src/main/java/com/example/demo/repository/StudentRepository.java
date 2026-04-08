@@ -1,10 +1,28 @@
 package com.example.demo.repository;
 
-import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.stereotype.Repository;
+
 import com.example.demo.model.Student;
 
-public interface StudentRepository extends JpaRepository<Student, Integer>{
+@Repository
+public class StudentRepository {
 
-    Student findByStudentId(String studentId);
+    private List<Student> students = new ArrayList<>();
+
+    public Student save(Student student) {
+
+        students.add(student);
+        return student;
+
+    }
+
+    public List<Student> findAll() {
+
+        return students;
+
+    }
 
 }

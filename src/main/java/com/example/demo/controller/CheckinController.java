@@ -1,16 +1,23 @@
 package com.example.demo.controller;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import com.example.demo.model.Attendance;
+import com.example.demo.service.CheckinService;
+
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/checkin")
 public class CheckinController {
 
-    @PostMapping("/checkin")
-    public String checkin(){
+    @Autowired
+    private CheckinService checkinService;
 
-        return "checkin success";
+    @PostMapping
+    public Attendance checkin(@RequestParam String studentId,
+                              @RequestParam String sessionCode) {
 
+        return checkinService.checkin(studentId, sessionCode);
     }
 
 }

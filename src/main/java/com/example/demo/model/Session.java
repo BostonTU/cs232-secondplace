@@ -1,21 +1,36 @@
 package com.example.demo.model;
 
-import jakarta.persistence.*;
-import java.time.LocalDateTime;
-
-@Entity
 public class Session {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int id;
-
     private String sessionCode;
+    private String subject;
+    private String time;
 
-    private LocalDateTime createdAt;
+    public Session() {
+    }
 
-    public Session(){
-        this.createdAt = LocalDateTime.now();
+    public String getSessionCode() {
+        return sessionCode;
+    }
+
+    public void setSessionCode(String sessionCode) {
+        this.sessionCode = sessionCode;
+    }
+
+    public String getSubject() {
+        return subject;
+    }
+
+    public void setSubject(String subject) {
+        this.subject = subject;
+    }
+
+    public String getTime() {
+        return time;
+    }
+
+    public void setTime(String time) {
+        this.time = time;
     }
 
 }
