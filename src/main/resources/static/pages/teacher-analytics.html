@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AttendX — Analytics</title>
+  <link rel="stylesheet" href="../css/global.css" />
+  <link rel="stylesheet" href="../css/dashboard.css" />
+</head>
+<body>
+
+  <div class="app-layout">
+
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-text">Attend<span>X</span></div>
+      </div>
+      <div class="sidebar-section-label">เมนูอาจารย์</div>
+      <nav class="sidebar-nav">
+        <a href="teacher-dashboard.html">
+          <span class="nav-icon">🏠</span> Dashboard
+        </a>
+        <a href="teacher-qr.html">
+          <span class="nav-icon">📷</span> QR Generator
+        </a>
+        <a href="teacher-leave.html">
+          <span class="nav-icon">📋</span> จัดการใบลา
+          <span class="nav-badge">3</span>
+        </a>
+        <a href="teacher-analytics.html" class="active">
+          <span class="nav-icon">📊</span> Analytics
+        </a>
+      </nav>
+      <div class="sidebar-user">
+        <div class="avatar" style="background:var(--dark-navy);color:var(--yellow);">อ</div>
+        <div class="user-info">
+          <div class="user-name">อาจารย์ (ด)</div>
+          <div class="user-role">อาจารย์ประจำหลักสูตร CS</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── Topbar ── -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="topbar-icon-btn" onclick="toggleSidebar()">☰</button>
+        <span class="page-title">Analytics</span>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-role-chip" style="background:var(--dark-navy);">อาจารย์</div>
+        <div class="topbar-icon-btn" onclick="logout()">🚪</div>
+      </div>
+    </header>
+
+    <!-- ── Main Content ── -->
+    <main class="main-content">
+
+      <div class="page-header">
+        <h1>📊 Analytics</h1>
+        <p class="subtitle">ภาพรวมการเข้าเรียน CS301 ภาคเรียน 1/2568</p>
+      </div>
+
+      <div class="analytics-grid">
+
+        <!-- Pie Chart -->
+        <div class="chart-card">
+          <h3>🥧 สัดส่วนการเข้าเรียน</h3>
+          <div class="pie-card-inner">
+            <div class="pie-canvas-wrap">
+              <canvas id="pieChart" width="200" height="200"></canvas>
+            </div>
+            <div class="pie-legend" id="pieLegend"></div>
+          </div>
+        </div>
+
+        <!-- Bar Chart -->
+        <div class="chart-card">
+          <h3>📈 รายสัปดาห์ (เปอร์เซ็นต์เข้าเรียน)</h3>
+          <div class="bar-chart-outer">
+            <div class="bar-chart-wrap" id="barChart"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Student Attendance Table -->
+      <div class="card">
+        <div style="padding:20px 22px;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+          <div style="font-size:16px;font-weight:700;">รายชื่อนักศึกษา — % เข้าเรียน</div>
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="🔍 ค้นหาชื่อ..."
+            oninput="filterTable(this.value)"
+            style="padding:8px 14px;border:1.5px solid var(--border);border-radius:var(--radius-md);font-family:Prompt,sans-serif;font-size:13px;outline:none;width:220px;"
+          />
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>ชื่อ-นามสกุล</th>
+                <th>รหัส</th>
+                <th>มาเรียน</th>
+                <th>ขาด</th>
+                <th>สาย</th>
+                <th>ลา</th>
+                <th>% เข้าเรียน</th>
+                <th>สถานะ</th>
+              </tr>
+            </thead>
+            <tbody id="analyticsTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="../js/utils.js"></script>
+  <script src="../js/teacher-analytics.js"></script>
+</body>
+</html>

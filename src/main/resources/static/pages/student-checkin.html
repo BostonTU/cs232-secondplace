@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AttendX — นักศึกษา Check-In</title>
+  <link rel="stylesheet" href="../css/global.css" />
+  <link rel="stylesheet" href="../css/dashboard.css" />
+  <style>
+    /* ── Flow Step indicator ── */
+    .flow-steps {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      margin-bottom: 20px;
+    }
+    .flow-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .flow-step-circle {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--border);
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      transition: all 0.3s;
+    }
+    .flow-step-circle.active {
+      background: var(--yellow);
+      color: var(--dark-navy);
+    }
+    .flow-step-circle.done {
+      background: var(--green);
+      color: white;
+    }
+    .flow-step-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .flow-connector {
+      width: 40px;
+      height: 2px;
+      background: var(--border);
+      margin-bottom: 18px;
+      transition: background 0.3s;
+    }
+    .flow-connector.done { background: var(--green); }
+
+    /* ── QR Scanner Overlay ── */
+    .qr-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.92);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .qr-overlay.hidden { display: none; }
+    .qr-frame-box {
+      width: 260px;
+      height: 260px;
+      border: 3px solid var(--yellow);
+      border-radius: 18px;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+    .qr-frame-box video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .qr-corner {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      border-color: var(--yellow);
+      border-style: solid;
+    }
+    .qr-corner.tl { top:0;left:0;border-width:3px 0 0 3px; }
+    .qr-corner.tr { top:0;right:0;border-width:3px 3px 0 0; }
+    .qr-corner.bl { bottom:0;left:0;border-width:0 0 3px 3px; }
+    .qr-corner.br { bottom:0;right:0;border-width:0 3px 3px 0; }
+    .qr-scan-anim {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(to right, transparent, var(--yellow), transparent);
+      animation: qrScan 2s linear infinite;
+    }
+    @keyframes qrScan {
+      0% { top: 0; }
+      100% { top: 100%; }
+    }
+    .qr-status-label {
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .qr-status-sub {
+      color: rgba(255,255,255,0.5);
+      font-size: 12px;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    /* ── Face Overlay ── */
+    .face-capture-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.92);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .face-capture-overlay.hidden { display: none; }
+  </style>
+</head>
+<body>
+
+  <div class="app-layout">
+
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-text">Attend<span>X</span></div>
+      </div>
+      <div class="sidebar-section-label">เมนูนักศึกษา</div>
+      <nav class="sidebar-nav">
+        <a href="student-checkin.html" class="active" id="nav-checkin">
+          <span class="nav-icon">✅</span> Check-In
+        </a>
+        <a href="student-leave.html" id="nav-leave">
+          <span class="nav-icon">📋</span> ขอใบลา
+        </a>
+        <a href="student-stats.html" id="nav-stats">
+          <span class="nav-icon">📊</span> สถิติการเข้าเรียน
+        </a>
+        <a href="student-face.html" id="nav-face">
+          <span class="nav-icon">🪪</span> รูปใบหน้า
+        </a>
+      </nav>
+      <div class="sidebar-user">
+        <div class="avatar" id="sidebarAvatar">น</div>
+        <div class="user-info">
+          <div class="user-name" id="sidebarName">นักศึกษา (ด)</div>
+          <div class="user-role">นักศึกษา — ด</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── Topbar ── -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="topbar-icon-btn" onclick="toggleSidebar()" id="menuBtn" style="margin-right:4px;">☰</button>
+        <span class="page-title" id="topbarTitle">Check-In</span>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-role-chip">นักศึกษา</div>
+        <div style="position:relative;">
+          <div class="topbar-icon-btn" onclick="toggleNotif()" id="notifBtn">
+            🔔
+            <span class="dot-badge" id="notifBadge">2</span>
+          </div>
+          <div class="notif-dropdown" id="notifDropdown" style="display:none;">
+            <div class="notif-header">
+              <span>การแจ้งเตือน</span>
+              <button onclick="markAllRead()" style="font-size:12px;color:var(--yellow);font-weight:600;">อ่านทั้งหมด</button>
+            </div>
+            <div class="notif-list" id="notifList"></div>
+          </div>
+        </div>
+        <div class="topbar-icon-btn" onclick="logout()">🚪</div>
+      </div>
+    </header>
+
+    <!-- ── Main Content ── -->
+    <main class="main-content">
+
+      <div class="page-header">
+        <h1>✅ Check-In</h1>
+        <p class="subtitle" id="todayDate">...</p>
+      </div>
+
+      <!-- Flow Steps -->
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="flow-step-circle active" id="stepCircle1">1</div>
+          <div class="flow-step-label">สแกน QR</div>
+        </div>
+        <div class="flow-connector" id="flowConn1"></div>
+        <div class="flow-step">
+          <div class="flow-step-circle" id="stepCircle2">2</div>
+          <div class="flow-step-label">ถ่ายหน้า</div>
+        </div>
+        <div class="flow-connector" id="flowConn2"></div>
+        <div class="flow-step">
+          <div class="flow-step-circle" id="stepCircle3">✓</div>
+          <div class="flow-step-label">เช็คชื่อสำเร็จ</div>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;" class="checkin-grid">
+
+        <!-- LEFT: Student Info + Course -->
+        <div>
+          <div class="student-id-card">
+            <div class="student-id-badge" id="studentStatus">Active</div>
+            <div class="student-id-label">STUDENT ID</div>
+            <div class="student-id-number" id="studentIdDisplay">6401234567</div>
+            <div class="student-id-name" id="studentNameDisplay">นายกิตติดินทร์ เชงมงคลศักดิ์</div>
+          </div>
+
+          <div class="course-card">
+            <div class="course-code">CS301</div>
+            <div class="course-name">Web Application Development</div>
+            <div class="course-meta">
+              <div class="course-meta-item">🕘 09:00–12:00 น.</div>
+              <div class="course-meta-item">📍 ห้อง SC-301</div>
+              <div class="course-meta-item">👤 อ.สมชาย ใจดี</div>
+            </div>
+          </div>
+
+          <div class="location-status checking" id="locationStatus">
+            <div class="loc-dot"></div>
+            <span id="locationText">กำลังตรวจสอบตำแหน่ง...</span>
+          </div>
+        </div>
+
+        <!-- RIGHT: QR Scan Panel -->
+        <div class="qr-scan-panel">
+          <div class="qr-icon-circle">📷</div>
+          <h3>ขั้นตอนที่ 1: สแกน QR Code</h3>
+          <p>สแกน QR ของอาจารย์ก่อน → ระบบจะเปิดหน้าถ่ายรูปให้อัตโนมัติ</p>
+
+          <button class="btn btn-primary btn-lg" onclick="openQRScanOverlay()" id="openScannerBtn">
+            📷 สแกน QR Code อาจารย์
+          </button>
+
+          <div style="margin:16px 0; color:var(--text-muted); font-size:13px;">— หรือกรอก Session ID —</div>
+
+          <div class="session-id-input-row">
+            <input type="text" id="sessionIdInput" placeholder="เช่น CS301-ABC12345" />
+            <button class="btn btn-secondary" onclick="submitSessionId()">ยืนยัน</button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ══ STEP 1: QR Scanner Overlay ══ -->
+  <div class="qr-overlay hidden" id="qrOverlay">
+    <div style="color:rgba(255,255,255,0.5);font-size:12px;margin-bottom:16px;">กด ESC หรือยกเลิก เพื่อปิด</div>
+
+    <div style="color:white;font-size:16px;font-weight:700;margin-bottom:16px;">📷 สแกน QR Code ของอาจารย์</div>
+
+    <div class="qr-frame-box" id="qrFrameBox">
+      <video id="qrVideo" autoplay muted playsinline></video>
+      <div class="qr-scan-anim"></div>
+      <div class="qr-corner tl"></div>
+      <div class="qr-corner tr"></div>
+      <div class="qr-corner bl"></div>
+      <div class="qr-corner br"></div>
+    </div>
+
+    <div class="qr-status-label" id="qrStatusLabel">กำลังรอสแกน QR...</div>
+    <div class="qr-status-sub" id="qrStatusSub">จัด QR Code ให้อยู่ในกรอบสีเหลือง</div>
+
+    <div style="display:flex;gap:12px;margin-top:8px;">
+      <button class="btn btn-secondary" onclick="simulateQRScan()">🧪 จำลอง QR (Demo)</button>
+      <button class="btn btn-secondary" onclick="closeQROverlay()">✕ ยกเลิก</button>
+    </div>
+  </div>
+
+  <!-- ══ STEP 2: Face Capture Overlay ══ -->
+  <div class="face-capture-overlay hidden" id="faceOverlay">
+    <div style="color:rgba(255,255,255,0.5);font-size:12px;margin-bottom:12px;">กด ESC เพื่อยกเลิก</div>
+
+    <div style="color:white;font-size:16px;font-weight:700;margin-bottom:4px;">📸 ขั้นตอนที่ 2: ถ่ายรูปยืนยันตัวตน</div>
+    <div style="color:rgba(255,255,255,0.55);font-size:12px;margin-bottom:16px;" id="faceSessionLabel">Session: CS301-ABC12345</div>
+
+    <div class="camera-frame" id="cameraFrame">
+      <video id="cameraVideo" autoplay muted playsinline></video>
+      <div class="scan-line" id="scanLine"></div>
+    </div>
+
+    <div class="checkin-success-anim" id="successAnim" style="display:none;">✅</div>
+
+    <div class="camera-status-text" id="cameraStatusText">จัดหน้าให้อยู่ในกรอบ แล้วกด Check-In</div>
+
+    <div class="camera-btn-row">
+      <button class="btn btn-secondary" onclick="retakePhoto()" id="retakeBtn">🔄 ถ่ายใหม่</button>
+      <button class="btn btn-primary" onclick="doCheckIn()" id="checkInBtn">✅ Check-In</button>
+      <button class="btn btn-secondary" onclick="closeFaceOverlay()">✕ ยกเลิก</button>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="../js/utils.js"></script>
+  <script src="../js/student-checkin.js"></script>
+</body>
+</html>

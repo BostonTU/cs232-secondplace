@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AttendX — ลงทะเบียนใบหน้า</title>
+  <link rel="stylesheet" href="../css/global.css" />
+  <link rel="stylesheet" href="../css/dashboard.css" />
+  <style>
+    .reg-method-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      background: var(--bg-page);
+      padding: 4px;
+      border-radius: 10px;
+    }
+    .reg-tab-btn {
+      flex: 1;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      background: transparent;
+      color: var(--text-muted);
+      transition: all 0.2s;
+    }
+    .reg-tab-btn.active {
+      background: var(--yellow);
+      color: var(--dark-navy);
+    }
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: 14px;
+      padding: 32px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--bg-page);
+      margin-bottom: 16px;
+    }
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: var(--yellow);
+      background: rgba(245,197,24,0.06);
+    }
+    .upload-preview-img {
+      width: 100%;
+      max-height: 200px;
+      object-fit: cover;
+      border-radius: 10px;
+      display: none;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body style="background:var(--bg-page);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;">
+
+  <div class="face-reg-card">
+    <!-- Logo -->
+    <div style="font-size:22px;font-weight:800;letter-spacing:-0.5px;margin-bottom:20px;">
+      Attend<span style="color:var(--yellow);">X</span>
+    </div>
+
+    <h2>ลงทะเบียนใบหน้า</h2>
+    <p class="fr-sub">บันทึกใบหน้าเพื่อใช้ยืนยันตัวตนตอนเช็คชื่อด้วย AWS Rekognition</p>
+
+    <!-- Method Tabs -->
+    <div class="reg-method-tabs">
+      <button class="reg-tab-btn active" id="tabCamera" onclick="switchTab('camera')">📷 ถ่ายรูป</button>
+      <button class="reg-tab-btn" id="tabUpload" onclick="switchTab('upload')">📤 อัพโหลดรูป</button>
+    </div>
+
+    <!-- ══ CAMERA SECTION ══ -->
+    <div id="cameraSection">
+      <!-- Step indicator -->
+      <div style="display:flex;justify-content:center;gap:8px;margin-bottom:24px;" id="stepIndicator">
+        <div class="step-dot active" id="dot1" style="width:10px;height:10px;border-radius:50%;background:var(--yellow);"></div>
+        <div class="step-dot" id="dot2" style="width:10px;height:10px;border-radius:50%;background:var(--border);"></div>
+        <div class="step-dot" id="dot3" style="width:10px;height:10px;border-radius:50%;background:var(--border);"></div>
+      </div>
+
+      <!-- Preview -->
+      <div class="face-preview" id="facePreview">
+        <video id="faceVideo" autoplay muted playsinline style="display:none;"></video>
+        <canvas id="faceCanvas" style="display:none;width:100%;height:100%;object-fit:cover;"></canvas>
+        <span id="faceEmoji">🤳</span>
+      </div>
+
+      <!-- Tip -->
+      <div class="face-tip" id="faceTip">
+        <span>💡</span>
+        <span id="tipText">กดเปิดกล้องและจัดหน้าให้อยู่ในกรอบ มองตรงมาที่กล้อง</span>
+      </div>
+
+      <!-- Step Label -->
+      <div style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:16px;" id="stepLabel">
+        ขั้นตอน 1/3: เปิดกล้อง
+      </div>
+
+      <!-- Camera Buttons -->
+      <div class="face-reg-btns" id="faceRegBtns">
+        <button class="btn btn-primary btn-lg" id="primaryBtn" onclick="faceStep()">
+          📷 เปิดกล้อง
+        </button>
+        <button class="btn btn-secondary" id="secondaryBtn" style="display:none;" onclick="retakeFace()">
+          🔄 ถ่ายใหม่
+        </button>
+      </div>
+    </div>
+
+    <!-- ══ UPLOAD SECTION ══ -->
+    <div id="uploadSection" style="display:none;">
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;line-height:1.6;">
+        อัพโหลดรูปหน้าตรงที่ชัดเจน เพื่อใช้เป็นข้อมูลฐาน AWS Rekognition สำหรับเช็คชื่อ
+      </p>
+
+      <!-- Upload Zone -->
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('faceFileInput').click()"
+           ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+        <img id="uploadPreviewImg" class="upload-preview-img" alt="preview" />
+        <div id="uploadPlaceholder">
+          <div style="font-size:40px;margin-bottom:8px;">🖼️</div>
+          <div style="font-size:14px;font-weight:600;margin-bottom:4px;">คลิกหรือลากรูปมาวางที่นี่</div>
+          <div style="font-size:12px;color:var(--text-muted);">รองรับ JPG, PNG, HEIC (ขนาดไม่เกิน 5MB)</div>
+        </div>
+      </div>
+      <input type="file" id="faceFileInput" accept="image/*" style="display:none;" onchange="handleFileUpload(event)" />
+
+      <!-- File info -->
+      <div id="uploadFileInfo" style="display:none;font-size:13px;color:var(--text-secondary);margin-bottom:14px;padding:8px 12px;background:var(--bg-page);border-radius:8px;border:1px solid var(--border);"></div>
+
+      <!-- Upload tips -->
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;line-height:1.8;">
+        ✅ รูปหน้าตรง ไม่สวมแว่นกันแดด<br>
+        ✅ แสงเพียงพอ เห็นใบหน้าชัดเจน<br>
+        ✅ ไม่มีหน้ากากหรือสิ่งปิดบัง
+      </div>
+
+      <button class="btn btn-primary btn-lg" id="uploadSaveBtn" onclick="saveUploadedFace()" disabled
+              style="width:100%;opacity:0.5;">
+        💾 บันทึกรูปใบหน้า
+      </button>
+    </div>
+
+    <!-- Skip (for demo) -->
+    <button onclick="skipFaceReg()" style="margin-top:14px;font-size:12px;color:var(--text-muted);background:none;border:none;cursor:pointer;text-decoration:underline;">
+      ข้ามสำหรับตอนนี้
+    </button>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="../js/utils.js"></script>
+  <script>
+    /* ── Tab Switch ───────────────────────── */
+    function switchTab(tab) {
+      document.getElementById('tabCamera').classList.toggle('active', tab === 'camera');
+      document.getElementById('tabUpload').classList.toggle('active', tab === 'upload');
+      document.getElementById('cameraSection').style.display = tab === 'camera' ? 'block' : 'none';
+      document.getElementById('uploadSection').style.display = tab === 'upload' ? 'block' : 'none';
+      if (tab !== 'camera' && stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    }
+
+    /* ── Camera Flow ──────────────────────── */
+    let step = 1;
+    let stream = null;
+    let capturedImage = null;
+
+    async function faceStep() {
+      if (step === 1) await openFaceCamera();
+      else if (step === 2) capturePhoto();
+      else if (step === 3) saveFace();
+    }
+
+    async function openFaceCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'user' } });
+        const video = document.getElementById('faceVideo');
+        const emoji = document.getElementById('faceEmoji');
+        video.srcObject = stream;
+        video.style.display = 'block';
+        emoji.style.display = 'none';
+        setStep(2, 'ขั้นตอน 2/3: ถ่ายรูป', '📸 กดถ่ายภาพเมื่อพร้อม', '📸 ถ่ายรูป');
+        document.getElementById('secondaryBtn').style.display = 'none';
+      } catch (err) {
+        showToast('ไม่สามารถเปิดกล้องได้', 'error');
+      }
+    }
+
+    function capturePhoto() {
+      const video  = document.getElementById('faceVideo');
+      const canvas = document.getElementById('faceCanvas');
+      canvas.width  = video.videoWidth  || 200;
+      canvas.height = video.videoHeight || 200;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      capturedImage = canvas.toDataURL('image/jpeg', 0.9);
+      video.style.display  = 'none';
+      canvas.style.display = 'block';
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      setStep(3, 'ขั้นตอน 3/3: ยืนยัน', '✅ ตรวจสอบภาพ แล้วกดบันทึก', '💾 บันทึกใบหน้า');
+      document.getElementById('secondaryBtn').style.display = 'block';
+    }
+
+    async function saveFace() {
+      const btn = document.getElementById('primaryBtn');
+      btn.disabled = true;
+      btn.textContent = '⏳ กำลังอัพโหลด AWS...';
+      await new Promise(r => setTimeout(r, 1800));
+      persistFaceAndRedirect();
+    }
+
+    function retakeFace() {
+      const video  = document.getElementById('faceVideo');
+      const canvas = document.getElementById('faceCanvas');
+      const emoji  = document.getElementById('faceEmoji');
+      canvas.style.display = 'none';
+      video.style.display  = 'none';
+      emoji.style.display  = 'block';
+      capturedImage = null;
+      setStep(1, 'ขั้นตอน 1/3: เปิดกล้อง', 'กดเปิดกล้องและจัดหน้าให้อยู่ในกรอบ', '📷 เปิดกล้อง');
+      document.getElementById('secondaryBtn').style.display = 'none';
+    }
+
+    function setStep(n, label, tip, btnText) {
+      step = n;
+      document.getElementById('stepLabel').textContent   = label;
+      document.getElementById('tipText').textContent     = tip;
+      document.getElementById('primaryBtn').textContent  = btnText;
+      document.getElementById('primaryBtn').disabled     = false;
+      for (let i = 1; i <= 3; i++) {
+        document.getElementById(`dot${i}`).style.background = i <= n ? 'var(--yellow)' : 'var(--border)';
+      }
+    }
+
+    /* ── Upload Flow ──────────────────────── */
+    let uploadedFile = null;
+
+    function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      processUploadFile(file);
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      document.getElementById('uploadZone').classList.add('dragover');
+    }
+    function handleDragLeave(e) {
+      document.getElementById('uploadZone').classList.remove('dragover');
+    }
+    function handleDrop(e) {
+      e.preventDefault();
+      document.getElementById('uploadZone').classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) processUploadFile(file);
+      else showToast('กรุณาเลือกไฟล์รูปภาพเท่านั้น', 'error');
+    }
+
+    function processUploadFile(file) {
+      if (file.size > 5 * 1024 * 1024) {
+        showToast('ไฟล์ขนาดเกิน 5MB กรุณาเลือกไฟล์ที่เล็กกว่า', 'error');
+        return;
+      }
+      uploadedFile = file;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = document.getElementById('uploadPreviewImg');
+        img.src = e.target.result;
+        img.style.display = 'block';
+        document.getElementById('uploadPlaceholder').style.display = 'none';
+      };
+      reader.readAsDataURL(file);
+
+      const info = document.getElementById('uploadFileInfo');
+      info.style.display = 'block';
+      info.innerHTML = `📎 ${file.name} <span style="color:var(--text-muted)">(${(file.size/1024).toFixed(0)} KB)</span>`;
+
+      const saveBtn = document.getElementById('uploadSaveBtn');
+      saveBtn.disabled = false;
+      saveBtn.style.opacity = '1';
+    }
+
+    async function saveUploadedFace() {
+      if (!uploadedFile) return;
+      const btn = document.getElementById('uploadSaveBtn');
+      btn.disabled = true;
+      btn.textContent = '⏳ กำลังอัพโหลด AWS...';
+      await new Promise(r => setTimeout(r, 2000));
+      persistFaceAndRedirect();
+    }
+
+    /* ── Shared ───────────────────────────── */
+    function persistFaceAndRedirect() {
+      const user = getUser();
+      if (user) {
+        user.hasFace = true;
+        localStorage.setItem('attendx_user', JSON.stringify(user));
+        sessionStorage.setItem('attendx_user', JSON.stringify(user));
+      }
+      showToast('บันทึกใบหน้าสำเร็จ! ระบบ AWS พร้อมใช้งาน', 'success');
+      setTimeout(() => { window.location.href = 'student-checkin.html'; }, 1200);
+    }
+
+    function skipFaceReg() {
+      showToast('ข้ามการลงทะเบียนใบหน้า', 'warning');
+      setTimeout(() => { window.location.href = 'student-checkin.html'; }, 800);
+    }
+  </script>
+</body>
+</html>
