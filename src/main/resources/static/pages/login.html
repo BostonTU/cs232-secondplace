@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AttendX — เข้าสู่ระบบ</title>
+  <link rel="stylesheet" href="../css/global.css" />
+  <link rel="stylesheet" href="../css/login.css" />
+</head>
+<body>
+
+  <div class="login-page">
+    <div class="login-container">
+
+      <!-- LEFT: Hero Panel -->
+      <div class="login-hero">
+        <div class="hero-logo">
+          <div class="logo-text">Attend<span>X</span></div>
+          <div class="logo-sub">
+            ระบบเช็คชื่อนักศึกษา<br>
+            มหาวิทยาลัยธรรมศาสตร์
+          </div>
+        </div>
+
+        <div class="hero-features">
+          <div class="hero-feature">
+            <div class="feat-icon">✅</div>
+            <div class="feat-text">เช็คชื่อด้วย QR Code</div>
+          </div>
+          <div class="hero-feature">
+            <div class="feat-icon">📊</div>
+            <div class="feat-text">ดูสถิติการเข้าเรียน</div>
+          </div>
+          <div class="hero-feature">
+            <div class="feat-icon">📋</div>
+            <div class="feat-text">ขอใบลาออนไลน์</div>
+          </div>
+          <div class="hero-feature">
+            <div class="feat-icon">🔔</div>
+            <div class="feat-text">แจ้งเตือนแบบ Real-time</div>
+          </div>
+        </div>
+
+        <div class="hero-footer">AttendX v2.0 • TU Department of CS</div>
+      </div>
+
+      <!-- RIGHT: Form Panel -->
+      <div class="login-form-panel">
+
+        <!-- Role Toggle -->
+        <div class="role-toggle" id="roleToggle">
+          <button class="role-btn active" data-role="student" onclick="selectRole('student', this)">
+            🎓 นักศึกษา
+          </button>
+          <button class="role-btn" data-role="teacher" onclick="selectRole('teacher', this)">
+            🏫 อาจารย์
+          </button>
+        </div>
+
+        <!-- Form Title -->
+        <h2 class="form-title" id="formTitle">เข้าสู่ระบบ นักศึกษา</h2>
+        <p class="form-subtitle" id="formSubtitle">กรอกรหัสนักศึกษาและรหัสผ่าน</p>
+
+        <!-- Error Alert (hidden by default) -->
+        <div class="alert alert-error" id="loginError" style="display:none; margin-bottom:16px;">
+          <span>⚠️</span>
+          <span id="loginErrorText">รหัสผู้ใช้หรือรหัสผ่านไม่ถูกต้อง</span>
+        </div>
+
+        <!-- Login Form -->
+        <form class="login-form" id="loginForm" onsubmit="handleLogin(event)">
+
+          <div class="input-group">
+            <label id="idLabel">รหัสนักศึกษา</label>
+            <div class="input-wrap">
+              <span class="icon">👤</span>
+              <input
+                type="text"
+                id="userId"
+                placeholder="เช่น 6401234567"
+                autocomplete="username"
+                required
+              />
+            </div>
+            <span class="field-error" id="userIdError" style="display:none;">⚠️ กรุณากรอกรหัสผู้ใช้</span>
+          </div>
+
+          <div class="input-group">
+            <label>รหัสผ่าน</label>
+            <div class="input-wrap">
+              <span class="icon">🔒</span>
+              <input
+                type="password"
+                id="password"
+                placeholder="••••••••"
+                autocomplete="current-password"
+                required
+              />
+              <span class="suffix" onclick="togglePassword()" id="eyeIcon">👁️</span>
+            </div>
+            <span class="field-error" id="passError" style="display:none;">⚠️ กรุณากรอกรหัสผ่าน</span>
+          </div>
+
+          <div class="remember-row">
+            <input type="checkbox" id="rememberMe" />
+            <label for="rememberMe">จำรหัสผ่าน</label>
+          </div>
+
+          <button type="submit" class="login-btn" id="loginBtn">
+            <span class="btn-text">เข้าสู่ระบบ</span>
+            <div class="spinner" style="display:none;" id="loginSpinner"></div>
+          </button>
+
+        </form>
+
+        <p class="login-footer">AttendX v2.0 • TU Department of CS</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="../js/utils.js"></script>
+  <script src="../js/login.js"></script>
+</body>
+</html>
