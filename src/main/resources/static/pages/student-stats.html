@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AttendX — สถิติการเข้าเรียน</title>
+  <link rel="stylesheet" href="../css/global.css" />
+  <link rel="stylesheet" href="../css/dashboard.css" />
+</head>
+<body>
+
+  <div class="app-layout">
+
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-text">Attend<span>X</span></div>
+      </div>
+      <div class="sidebar-section-label">เมนูนักศึกษา</div>
+      <nav class="sidebar-nav">
+        <a href="student-checkin.html">
+          <span class="nav-icon">✅</span> Check-In
+        </a>
+        <a href="student-leave.html">
+          <span class="nav-icon">📋</span> ขอใบลา
+        </a>
+        <a href="student-stats.html" class="active">
+          <span class="nav-icon">📊</span> สถิติการเข้าเรียน
+        </a>
+        <a href="student-face.html" id="nav-face">
+          <span class="nav-icon">🪪</span> รูปใบหน้า
+        </a>
+      </nav>
+      <div class="sidebar-user">
+        <div class="avatar">น</div>
+        <div class="user-info">
+          <div class="user-name">นักศึกษา (ด)</div>
+          <div class="user-role">นักศึกษา — ด</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── Topbar ── -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="topbar-icon-btn" onclick="toggleSidebar()">☰</button>
+        <span class="page-title">สถิติการเข้าเรียน</span>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-role-chip">นักศึกษา</div>
+        <div class="topbar-icon-btn" onclick="logout()">🚪</div>
+      </div>
+    </header>
+
+    <!-- ── Main Content ── -->
+    <main class="main-content">
+
+      <div class="page-header">
+        <h1>📊 สถิติการเข้าเรียน</h1>
+        <p class="subtitle">ภาคเรียน 1/2568</p>
+      </div>
+
+      <!-- Overall Stats -->
+      <div class="attend-stat-row" style="margin-bottom:24px; grid-template-columns:repeat(3,1fr);">
+        <div class="attend-stat card">
+          <div class="as-value" style="color:var(--green);" id="statPresent">—</div>
+          <div class="as-label">มาเรียน</div>
+        </div>
+        <div class="attend-stat card">
+          <div class="as-value" style="color:var(--red);" id="statAbsent">—</div>
+          <div class="as-label">ขาดเรียน</div>
+        </div>
+        <div class="attend-stat card">
+          <div class="as-value" style="color:var(--orange);" id="statLate">—</div>
+          <div class="as-label">มาสาย</div>
+        </div>
+      </div>
+
+      <!-- Per Subject -->
+      <div class="card" style="padding:24px;">
+        <h3 style="font-size:16px;font-weight:700;margin-bottom:16px;">รายวิชา</h3>
+        <div id="subjectStatsList"></div>
+      </div>
+
+      <!-- Recent History -->
+      <div style="margin-top:24px;">
+        <div style="font-size:16px;font-weight:700;margin-bottom:14px;">📅 ประวัติล่าสุด</div>
+        <div class="history-list" id="historyList"></div>
+      </div>
+
+    </main>
+  </div>
+
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="../js/utils.js"></script>
+  <script src="../js/student-stats.js"></script>
+</body>
+</html>

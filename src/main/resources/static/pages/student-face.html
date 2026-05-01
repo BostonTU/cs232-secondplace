@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AttendX — รูปใบหน้า</title>
+  <link rel="stylesheet" href="../css/global.css" />
+  <link rel="stylesheet" href="../css/dashboard.css" />
+  <style>
+    /* ── Face Profile Page ── */
+    .face-profile-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    @media (max-width: 700px) {
+      .face-profile-grid { grid-template-columns: 1fr; }
+    }
+
+    .face-current-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    .face-avatar-ring {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      border: 3px solid var(--yellow);
+      overflow: hidden;
+      background: var(--bg-page);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 56px;
+      position: relative;
+    }
+    .face-avatar-ring img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+    }
+    .face-status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .face-status-chip.has-face {
+      background: var(--green-bg);
+      color: var(--green);
+    }
+    .face-status-chip.no-face {
+      background: var(--orange-bg);
+      color: var(--orange);
+    }
+    .face-info-row {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+      line-height: 1.7;
+    }
+
+    /* ── Upload Card ── */
+    .face-upload-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+    }
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: 14px;
+      padding: 32px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--bg-page);
+      margin-bottom: 16px;
+      position: relative;
+    }
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: var(--yellow);
+      background: rgba(245,197,24,0.05);
+    }
+    .upload-zone.has-preview {
+      padding: 8px;
+      border-style: solid;
+      border-color: var(--green);
+    }
+    .upload-preview-img {
+      width: 100%;
+      max-height: 220px;
+      object-fit: cover;
+      border-radius: 8px;
+      display: none;
+    }
+    .upload-placeholder { pointer-events: none; }
+
+    /* ── PDPA Modal ── */
+    .pdpa-modal-box {
+      background: var(--bg-card);
+      border-radius: 18px;
+      padding: 32px 28px;
+      max-width: 500px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .pdpa-section {
+      margin-bottom: 16px;
+    }
+    .pdpa-section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .pdpa-section-body {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.7;
+      padding-left: 4px;
+    }
+    .pdpa-consent-check {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 14px 16px;
+      background: var(--bg-page);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      margin-top: 16px;
+      cursor: pointer;
+    }
+    .pdpa-consent-check input[type="checkbox"] {
+      margin-top: 2px;
+      width: 16px;
+      height: 16px;
+      accent-color: var(--yellow);
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .pdpa-consent-check label {
+      font-size: 13px;
+      line-height: 1.6;
+      cursor: pointer;
+      color: var(--text-primary);
+    }
+
+    /* ── History List ── */
+    .face-history-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      margin-bottom: 10px;
+      background: var(--bg-page);
+    }
+    .face-history-thumb {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .face-history-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-text">Attend<span>X</span></div>
+      </div>
+      <div class="sidebar-section-label">เมนูนักศึกษา</div>
+      <nav class="sidebar-nav">
+        <a href="student-checkin.html" id="nav-checkin">
+          <span class="nav-icon">✅</span> Check-In
+        </a>
+        <a href="student-leave.html" id="nav-leave">
+          <span class="nav-icon">📋</span> ขอใบลา
+        </a>
+        <a href="student-stats.html" id="nav-stats">
+          <span class="nav-icon">📊</span> สถิติการเข้าเรียน
+        </a>
+        <a href="student-face.html" class="active" id="nav-face">
+          <span class="nav-icon">🕵🏻</span> รูปใบหน้า
+        </a>
+      </nav>
+      <div class="sidebar-user">
+        <div class="avatar" id="sidebarAvatar">น</div>
+        <div class="user-info">
+          <div class="user-name" id="sidebarName">นักศึกษา</div>
+          <div class="user-role">นักศึกษา</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── Topbar ── -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="topbar-icon-btn" onclick="toggleSidebar()">☰</button>
+        <span class="page-title">รูปใบหน้า</span>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-role-chip">นักศึกษา</div>
+        <div class="topbar-icon-btn" onclick="logout()">🚪</div>
+      </div>
+    </header>
+
+    <!-- ── Main ── -->
+    <main class="main-content">
+
+      <div class="page-header">
+        <h1>🕵🏻 รูปใบหน้าสำหรับเช็คชื่อ</h1>
+        <p class="subtitle">รูปนี้จะถูกเก็บใน AWS S3 และใช้เปรียบเทียบตอนเช็คชื่อด้วย AWS Rekognition</p>
+      </div>
+
+      <!-- No-face warning banner -->
+      <div id="noFaceBanner" style="display:none;margin-bottom:20px;"
+           class="alert" style="background:var(--orange-bg);border:1px solid var(--orange);border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:12px;font-size:14px;">
+        ⚠️ <strong>คุณยังไม่มีรูปใบหน้าในระบบ</strong> — กรุณาอัพโหลดรูปก่อนจึงจะสามารถเช็คชื่อได้
+      </div>
+
+      <div class="face-profile-grid">
+
+        <!-- LEFT: Current Face -->
+        <div>
+          <div class="face-current-card">
+            <div style="font-size:14px;font-weight:700;color:var(--text-secondary);align-self:flex-start;">รูปปัจจุบันในระบบ</div>
+
+            <div class="face-avatar-ring" id="currentFaceRing">
+              <img id="currentFaceImg" src="" alt="face" />
+              <span id="currentFaceEmoji">🤳</span>
+            </div>
+
+            <div id="faceStatusChip" class="face-status-chip no-face">
+              ⚠️ ยังไม่มีรูปในระบบ
+            </div>
+
+            <div class="face-info-row" id="faceInfoRow">
+              กรุณาอัพโหลดรูปใบหน้าเพื่อใช้เช็คชื่อ
+            </div>
+
+            <button class="btn btn-danger btn-sm" id="deleteBtn" style="display:none;" onclick="deleteFace()">
+              🗑 ลบรูปออกจากระบบ
+            </button>
+          </div>
+
+          <!-- Upload History -->
+          <div class="card" style="margin-top:20px;padding:20px;">
+            <div style="font-size:14px;font-weight:700;margin-bottom:14px;">📋 ประวัติการอัพโหลด</div>
+            <div id="uploadHistory">
+              <div style="font-size:13px;color:var(--text-muted);padding:12px 0;">ยังไม่มีประวัติ</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Upload New -->
+        <div class="face-upload-card">
+          <div style="font-size:14px;font-weight:700;margin-bottom:4px;">📤 อัพโหลดรูปใบหน้าใหม่</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:18px;">
+            รูปใหม่จะแทนรูปเก่าทันที และซิงค์กับระบบ AWS Rekognition
+          </div>
+
+          <!-- Upload Zone -->
+          <div class="upload-zone" id="uploadZone"
+               onclick="document.getElementById('faceFileInput').click()"
+               ondragover="handleDragOver(event)"
+               ondragleave="handleDragLeave(event)"
+               ondrop="handleDrop(event)">
+            <img id="uploadPreviewImg" class="upload-preview-img" alt="preview" />
+            <div id="uploadPlaceholder" class="upload-placeholder">
+              <div style="font-size:40px;margin-bottom:10px;">🖼️</div>
+              <div style="font-size:14px;font-weight:600;margin-bottom:4px;">คลิกหรือลากรูปมาวาง</div>
+              <div style="font-size:12px;color:var(--text-muted);">JPG, PNG, HEIC · ไม่เกิน 5MB</div>
+            </div>
+          </div>
+          <input type="file" id="faceFileInput" accept="image/*" style="display:none;" onchange="handleFileSelect(event)" />
+
+          <!-- File info -->
+          <div id="fileInfoRow" style="display:none;font-size:13px;color:var(--text-secondary);
+               margin-bottom:14px;padding:8px 12px;background:var(--bg-page);border-radius:8px;border:1px solid var(--border);">
+          </div>
+
+          <!-- Tips -->
+          <div style="font-size:12px;color:var(--text-muted);line-height:1.9;margin-bottom:18px;">
+            ✅ รูปหน้าตรง ไม่สวมแว่นกันแดดหรือหน้ากาก<br>
+            ✅ แสงเพียงพอ เห็นใบหน้าชัดเจน<br>
+            ✅ ใช้รูปคนเดียว ไม่มีคนอื่นในรูป
+          </div>
+
+          <!-- PDPA brief note -->
+          <div style="font-size:12px;color:var(--text-muted);padding:10px 14px;
+               background:rgba(59,130,246,0.06);border-radius:8px;border:1px solid rgba(59,130,246,0.15);
+               margin-bottom:18px;line-height:1.7;">
+            🔒 รูปภาพของคุณจะถูกเข้ารหัสและเก็บใน AWS S3 (กทม.) ใช้เพื่อยืนยันตัวตนในการเช็คชื่อเท่านั้น
+            <span onclick="showPDPAModal()" style="color:var(--blue);cursor:pointer;font-weight:600;text-decoration:underline;">อ่านนโยบาย PDPA เพิ่มเติม</span>
+          </div>
+
+          <button class="btn btn-primary btn-lg" id="uploadBtn" onclick="requestUpload()"
+                  style="width:100%;opacity:0.45;" disabled>
+            💾 บันทึกรูปใบหน้า
+          </button>
+
+          <div id="uploadProgress" style="display:none;margin-top:14px;">
+            <div style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;" id="uploadProgressLabel">กำลังอัพโหลด...</div>
+            <div style="height:6px;background:var(--border);border-radius:4px;overflow:hidden;">
+              <div id="uploadProgressBar" style="height:100%;width:0%;background:var(--yellow);border-radius:4px;transition:width 0.3s;"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ══ PDPA Modal ══ -->
+  <div class="overlay hidden" id="pdpaModal">
+    <div class="pdpa-modal-box">
+      <div style="font-size:22px;margin-bottom:8px;">🔒</div>
+      <div style="font-size:18px;font-weight:800;margin-bottom:4px;">นโยบายความเป็นส่วนตัว (PDPA)</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:20px;">
+        พระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562
+      </div>
+
+      <div class="pdpa-section">
+        <div class="pdpa-section-title">👤 ข้อมูลที่เราเก็บ</div>
+        <div class="pdpa-section-body">
+          ภาพถ่ายใบหน้าของคุณ และ Feature Vector (ข้อมูลเชิงตัวเลขที่สกัดจากใบหน้า) ที่สร้างโดย AWS Rekognition ซึ่งถือเป็น <strong>ข้อมูลชีวมิติ (Biometric Data)</strong> ตาม PDPA
+        </div>
+      </div>
+
+      <div class="pdpa-section">
+        <div class="pdpa-section-title">🎯 วัตถุประสงค์การใช้งาน</div>
+        <div class="pdpa-section-body">
+          ใช้เพื่อยืนยันตัวตนในระบบเช็คชื่อเรียน (AttendX) เท่านั้น ไม่นำไปใช้เพื่อวัตถุประสงค์อื่นใดโดยไม่ได้รับความยินยอม
+        </div>
+      </div>
+
+      <div class="pdpa-section">
+        <div class="pdpa-section-title">🗄 การจัดเก็บข้อมูล</div>
+        <div class="pdpa-section-body">
+          รูปภาพถูกเข้ารหัส ข้อมูลจะถูกลบโดยอัตโนมัติเมื่อสิ้นสุดภาคการศึกษา หรือเมื่อคุณร้องขอ
+        </div>
+      </div>
+
+      <div class="pdpa-section">
+        <div class="pdpa-section-title">🔐 การเข้าถึงข้อมูล</div>
+        <div class="pdpa-section-body">
+          เฉพาะระบบ AttendX และผู้ดูแลระบบที่ได้รับอนุญาตเท่านั้น ที่สามารถเข้าถึงข้อมูลของคุณได้ ไม่มีการเปิดเผยต่อบุคคลที่สามโดยไม่ได้รับอนุญาต
+        </div>
+      </div>
+
+      <div class="pdpa-section">
+        <div class="pdpa-section-title">✋ สิทธิ์ของคุณ</div>
+        <div class="pdpa-section-body">
+          คุณมีสิทธิ์เข้าถึง แก้ไข ลบ หรือขอสำเนาข้อมูลของคุณได้ตลอดเวลาผ่านหน้านี้ หรือติดต่อผู้ดูแลระบบ
+        </div>
+      </div>
+
+      <!-- Consent checkbox -->
+      <div class="pdpa-consent-check" onclick="toggleConsent()">
+        <input type="checkbox" id="pdpaCheckbox" onchange="toggleConsent()" />
+        <label for="pdpaCheckbox">
+          ข้าพเจ้าได้อ่านและเข้าใจนโยบายความเป็นส่วนตัวแล้ว และ<strong>ยินยอมให้ AttendX เก็บและประมวลผลข้อมูลชีวมิติ</strong>ของข้าพเจ้าเพื่อวัตถุประสงค์การเช็คชื่อเรียน
+        </label>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:20px;">
+        <button class="btn btn-secondary" style="flex:1;" onclick="declinePDPA()">ไม่ยินยอม</button>
+        <button class="btn btn-primary" style="flex:1;opacity:0.4;" id="pdpaAcceptBtn" onclick="acceptPDPA()" disabled>
+          ✅ ยินยอมและดำเนินการต่อ
+        </button>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:10px;">
+        หากไม่ยินยอม คุณจะไม่สามารถใช้ระบบเช็คชื่ออัตโนมัติได้
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm delete modal -->
+  <div class="overlay hidden" id="deleteModal">
+    <div class="card" style="padding:28px;max-width:380px;width:100%;text-align:center;">
+      <div style="font-size:40px;margin-bottom:12px;">🗑</div>
+      <div style="font-size:17px;font-weight:700;margin-bottom:8px;">ยืนยันการลบรูป</div>
+      <div style="font-size:14px;color:var(--text-muted);margin-bottom:24px;">
+        รูปใบหน้าของคุณจะถูกลบออกจาก AWS S3 และ Rekognition ทันที คุณจะไม่สามารถเช็คชื่ออัตโนมัติได้จนกว่าจะอัพโหลดรูปใหม่
+      </div>
+      <div style="display:flex;gap:10px;justify-content:center;">
+        <button class="btn btn-secondary" onclick="closeDeleteModal()">ยกเลิก</button>
+        <button class="btn btn-danger" onclick="confirmDelete()">ลบออกจากระบบ</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="../js/utils.js"></script>
+  <script>
+  /* ════════════════════════════════════════
+     Student Face Profile JS
+  ════════════════════════════════════════ */
+
+  // State
+  let selectedFile   = null;
+  let pdpaConsented  = false;
+  let currentFaceUrl = null; // mock: null = no face
+
+  // Mock upload history
+  const uploadHistory = JSON.parse(localStorage.getItem('attendx_face_history') || '[]');
+
+  // ── Init ─────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    const user = getUser();
+    if (user) {
+      document.getElementById('sidebarName').textContent   = user.name?.split(' ')[0] || 'นักศึกษา';
+      document.getElementById('sidebarAvatar').textContent = user.name?.[0] || 'น';
+    }
+
+    // Load saved face from localStorage (mock S3)
+    const savedFace = localStorage.getItem('attendx_face_url');
+    if (savedFace) {
+      setCurrentFace(savedFace);
+    } else {
+      document.getElementById('noFaceBanner').style.display = 'flex';
+    }
+
+    // Check if PDPA already consented
+    pdpaConsented = localStorage.getItem('attendx_pdpa_face') === 'true';
+
+    renderHistory();
+  });
+
+  // ── Current Face Display ──────────────────
+  function setCurrentFace(url) {
+    currentFaceUrl = url;
+    const img   = document.getElementById('currentFaceImg');
+    const emoji = document.getElementById('currentFaceEmoji');
+    img.src = url;
+    img.style.display   = 'block';
+    emoji.style.display = 'none';
+
+    document.getElementById('faceStatusChip').className = 'face-status-chip has-face';
+    document.getElementById('faceStatusChip').textContent = '✅ มีรูปในระบบแล้ว';
+    document.getElementById('faceInfoRow').textContent = 'รูปถูกเก็บใน AWS S3 · ใช้สำหรับเช็คชื่ออัตโนมัติ';
+    document.getElementById('deleteBtn').style.display = 'inline-flex';
+    document.getElementById('noFaceBanner').style.display = 'none';
+  }
+
+  // ── File Select / Drag & Drop ─────────────
+  function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (file) processFile(file);
+  }
+  function handleDragOver(e) {
+    e.preventDefault();
+    document.getElementById('uploadZone').classList.add('dragover');
+  }
+  function handleDragLeave() {
+    document.getElementById('uploadZone').classList.remove('dragover');
+  }
+  function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById('uploadZone').classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) processFile(file);
+    else showToast('กรุณาเลือกไฟล์รูปภาพเท่านั้น', 'error');
+  }
+
+  function processFile(file) {
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('ไฟล์ขนาดเกิน 5MB', 'error');
+      return;
+    }
+    selectedFile = file;
+
+    // Preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = document.getElementById('uploadPreviewImg');
+      img.src = e.target.result;
+      img.style.display = 'block';
+      document.getElementById('uploadPlaceholder').style.display = 'none';
+      document.getElementById('uploadZone').classList.add('has-preview');
+    };
+    reader.readAsDataURL(file);
+
+    // File info
+    const info = document.getElementById('fileInfoRow');
+    info.style.display = 'block';
+    info.innerHTML = `📎 <strong>${file.name}</strong> <span style="color:var(--text-muted)">(${(file.size/1024).toFixed(0)} KB)</span>`;
+
+    // Enable upload button
+    const btn = document.getElementById('uploadBtn');
+    btn.disabled = false;
+    btn.style.opacity = '1';
+  }
+
+  // ── PDPA Flow ─────────────────────────────
+  function requestUpload() {
+    if (!selectedFile) return;
+    if (!pdpaConsented) {
+      showPDPAModal();
+    } else {
+      startUpload();
+    }
+  }
+
+  function showPDPAModal() {
+    document.getElementById('pdpaCheckbox').checked = false;
+    document.getElementById('pdpaAcceptBtn').disabled = true;
+    document.getElementById('pdpaAcceptBtn').style.opacity = '0.4';
+    document.getElementById('pdpaModal').classList.remove('hidden');
+  }
+
+  function toggleConsent() {
+    const checked = document.getElementById('pdpaCheckbox').checked;
+    const btn     = document.getElementById('pdpaAcceptBtn');
+    btn.disabled      = !checked;
+    btn.style.opacity = checked ? '1' : '0.4';
+  }
+
+  function acceptPDPA() {
+    pdpaConsented = true;
+    localStorage.setItem('attendx_pdpa_face', 'true');
+    document.getElementById('pdpaModal').classList.add('hidden');
+    showToast('บันทึกความยินยอม PDPA แล้ว', 'success');
+    if (selectedFile) startUpload();
+  }
+
+  function declinePDPA() {
+    document.getElementById('pdpaModal').classList.add('hidden');
+    showToast('ยกเลิกการอัพโหลด — ต้องยินยอม PDPA ก่อน', 'error');
+  }
+
+  // ── Upload ────────────────────────────────
+  async function startUpload() {
+    const btn      = document.getElementById('uploadBtn');
+    const progress = document.getElementById('uploadProgress');
+    const bar      = document.getElementById('uploadProgressBar');
+    const label    = document.getElementById('uploadProgressLabel');
+
+    btn.disabled      = true;
+    btn.style.opacity = '0.5';
+    progress.style.display = 'block';
+
+    // Simulate upload progress
+    const steps = [
+      { pct: 20, text: 'กำลังอัพโหลดไฟล์ไปยัง AWS S3...' },
+      { pct: 55, text: 'AWS Rekognition กำลังประมวลผลใบหน้า...' },
+      { pct: 85, text: 'กำลังสร้าง Feature Vector...' },
+      { pct: 100, text: 'บันทึกเสร็จสมบูรณ์ ✅' },
+    ];
+
+    for (const step of steps) {
+      await new Promise(r => setTimeout(r, 600));
+      bar.style.width = step.pct + '%';
+      label.textContent = step.text;
+    }
+
+    await new Promise(r => setTimeout(r, 400));
+
+    // Mock save: store preview as "S3 URL"
+    const dataUrl = document.getElementById('uploadPreviewImg').src;
+    localStorage.setItem('attendx_face_url', dataUrl);
+    setCurrentFace(dataUrl);
+
+    // Save history
+    const now = new Date();
+    uploadHistory.unshift({
+      time: now.toLocaleString('th-TH'),
+      name: selectedFile.name,
+      size: (selectedFile.size / 1024).toFixed(0) + ' KB',
+      dataUrl,
+    });
+    if (uploadHistory.length > 5) uploadHistory.pop();
+    localStorage.setItem('attendx_face_history', JSON.stringify(uploadHistory));
+    renderHistory();
+
+    // Reset UI
+    progress.style.display = 'none';
+    bar.style.width = '0%';
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    selectedFile = null;
+    document.getElementById('uploadPreviewImg').style.display = 'none';
+    document.getElementById('uploadPreviewImg').src = '';
+    document.getElementById('uploadPlaceholder').style.display = 'block';
+    document.getElementById('uploadZone').classList.remove('has-preview');
+    document.getElementById('fileInfoRow').style.display = 'none';
+    document.getElementById('faceFileInput').value = '';
+    btn.disabled = true;
+    btn.style.opacity = '0.45';
+
+    showToast('อัพโหลดรูปใบหน้าสำเร็จ! AWS Rekognition พร้อมใช้งาน', 'success');
+  }
+
+  // ── Upload History ────────────────────────
+  function renderHistory() {
+    const el = document.getElementById('uploadHistory');
+    if (!uploadHistory.length) {
+      el.innerHTML = '<div style="font-size:13px;color:var(--text-muted);padding:8px 0;">ยังไม่มีประวัติ</div>';
+      return;
+    }
+    el.innerHTML = uploadHistory.map((h, i) => `
+      <div class="face-history-item">
+        <div class="face-history-thumb">
+          ${h.dataUrl
+            ? `<img src="${h.dataUrl}" alt="thumb" />`
+            : '🤳'}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${h.name}</div>
+          <div style="font-size:11px;color:var(--text-muted);">${h.time} · ${h.size}</div>
+        </div>
+        ${i === 0 ? '<span class="badge badge-green" style="font-size:10px;">ใช้งานอยู่</span>' : ''}
+      </div>
+    `).join('');
+  }
+
+  // ── Delete Face ───────────────────────────
+  function deleteFace() {
+    document.getElementById('deleteModal').classList.remove('hidden');
+  }
+  function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.add('hidden');
+  }
+  async function confirmDelete() {
+    closeDeleteModal();
+    await new Promise(r => setTimeout(r, 800));
+    localStorage.removeItem('attendx_face_url');
+    currentFaceUrl = null;
+
+    const img   = document.getElementById('currentFaceImg');
+    const emoji = document.getElementById('currentFaceEmoji');
+    img.style.display   = 'none';
+    emoji.style.display = 'block';
+
+    document.getElementById('faceStatusChip').className   = 'face-status-chip no-face';
+    document.getElementById('faceStatusChip').textContent = '⚠️ ยังไม่มีรูปในระบบ';
+    document.getElementById('faceInfoRow').textContent    = 'กรุณาอัพโหลดรูปใบหน้าเพื่อใช้เช็คชื่อ';
+    document.getElementById('deleteBtn').style.display    = 'none';
+    document.getElementById('noFaceBanner').style.display = 'flex';
+
+    showToast('ลบรูปออกจากระบบแล้ว', 'success');
+  }
+
+  // Close modals on overlay click
+  document.addEventListener('click', e => {
+    const pdpa = document.getElementById('pdpaModal');
+    if (pdpa && e.target === pdpa) declinePDPA();
+    const del = document.getElementById('deleteModal');
+    if (del && e.target === del) closeDeleteModal();
+  });
+  </script>
+</body>
+</html>
