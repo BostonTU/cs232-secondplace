@@ -2,85 +2,118 @@
    AttendX - Student Stats JS
    ============================================ */
 
-const SUBJECT_STATS = [
-  { code:'CS301', name:'Web Application Development', present:14, absent:2, late:1, leave:1, total:18 },
-  { code:'CS302', name:'Database Systems',             present:16, absent:1, late:0, leave:1, total:18 },
-  { code:'CS303', name:'Software Engineering',         present:13, absent:3, late:2, leave:0, total:18 },
-  { code:'CS304', name:'Computer Networks',            present:15, absent:1, late:1, leave:1, total:18 },
-];
+async function loadStats() {
+  try {
+    const res  = await fetch('/student/attendance/my-stats', { credentials: 'include' });
 
-const HISTORY_DATA = [
-  { course:'CS301', date:'19 มี.ค. 2568', status:'present', time:'09:31:07' },
-  { course:'CS302', date:'18 มี.ค. 2568', status:'present', time:'10:02:44' },
-  { course:'CS303', date:'18 มี.ค. 2568', status:'late',    time:'13:18:22' },
-  { course:'CS301', date:'17 มี.ค. 2568', status:'absent',  time:'—' },
-  { course:'CS304', date:'17 มี.ค. 2568', status:'present', time:'09:29:11' },
-  { course:'CS302', date:'15 มี.ค. 2568', status:'leave',   time:'—' },
-  { course:'CS303', date:'14 มี.ค. 2568', status:'present', time:'13:02:58' },
-];
+    if (res.status === 401) {
+      showStatsError('กรุณาล็อกอินก่อน');
+      return;
+    }
 
-document.addEventListener('DOMContentLoaded', () => {
-  renderOverallStats();
-  renderSubjectStats();
-  renderHistory();
-});
+    const data = await res.json();
+    if (!data.success) { showStatsError(data.message || 'โหลดข้อมูลไม่สำเร็จ'); return; }
 
-function renderOverallStats() {
-  let present = 0, absent = 0, late = 0;
-  SUBJECT_STATS.forEach(s => { present += s.present; absent += s.absent; late += s.late; });
-  document.getElementById('statPresent').textContent = present;
-  document.getElementById('statAbsent').textContent  = absent;
-  document.getElementById('statLate').textContent    = late;
+    renderOverallStats(data.summary);
+    renderHistory(data.history);
+    renderSubjectStats(data.history);
+
+  } catch (err) {
+    showStatsError('เชื่อมต่อ server ไม่ได้');
+  }
 }
 
-function renderSubjectStats() {
-  const container = document.getElementById('subjectStatsList');
-  if (!container) return;
+function showStatsError(msg) {
+  const list = document.getElementById('historyList');
+  if (list) list.innerHTML = `<div style="color:var(--text-muted);font-size:13px;padding:16px 0;text-align:center;">⚠️ ${msg}</div>`;
+}
 
-  container.innerHTML = SUBJECT_STATS.map(s => {
+document.addEventListener('DOMContentLoaded', () => {
+  // ── User Info ─────────────────────────────
+  const user = getUser();
+  if (user) {
+    const nameEl = document.getElementById('sidebarName');
+    const roleEl = document.getElementById('sidebarRole');
+    if (nameEl) nameEl.textContent = user.name?.split(' ')[0] || 'นักศึกษา';
+    if (roleEl) roleEl.textContent = `นักศึกษา`;
+    initSidebarAvatar();
+  }
+  
+  loadStats();
+});
+
+function renderOverallStats(summary) {
+  document.getElementById('statPresent').textContent = summary.present;
+  document.getElementById('statAbsent').textContent  = summary.absent;
+  document.getElementById('statLate').textContent    = summary.late;
+}
+
+function renderSubjectStats(history = []) {
+  const map = {};
+
+  history.forEach(h => {
+    if (!map[h.subject]) {
+      map[h.subject] = { present:0, late:0, absent:0, total:0 };
+    }
+
+    map[h.subject].total++;
+
+    if (h.status === 'มา') map[h.subject].present++;
+    else if (h.status === 'สาย') map[h.subject].late++;
+    else if (h.status === 'ขาด') map[h.subject].absent++;
+  });
+
+  const container = document.getElementById('subjectStatsList');
+
+  container.innerHTML = Object.entries(map).map(([subject, s]) => {
     const pct = Math.round((s.present + s.late * 0.5) / s.total * 100);
-    const cls = getPctClass(pct);
+
     return `
       <div style="padding:14px 0;border-bottom:1px solid var(--border-light);">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
-          <div>
-            <span style="font-size:11px;font-weight:700;background:var(--yellow-light);color:#7A6000;padding:2px 8px;border-radius:20px;margin-right:8px;">${s.code}</span>
-            <span style="font-size:14px;font-weight:600;">${s.name}</span>
-          </div>
-          <div style="display:flex;gap:12px;font-size:12px;">
-            <span style="color:var(--green);">✅ ${s.present}</span>
-            <span style="color:var(--red);">❌ ${s.absent}</span>
-            <span style="color:var(--orange);">⏰ ${s.late}</span>
-            <span style="color:var(--blue);">📋 ${s.leave}</span>
-          </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span>${subject}</span>
+          <span>${pct}%</span>
         </div>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div class="progress-bar-wrap" style="flex:1;">
-            <div class="progress-bar-fill ${cls}" style="width:${pct}%;"></div>
-          </div>
-          <span style="font-size:13px;font-weight:700;min-width:40px;text-align:right;">${pct}%</span>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" style="width:${pct}%"></div>
         </div>
       </div>
     `;
   }).join('');
 }
 
-function renderHistory() {
+function renderHistory(history = []) {
   const list = document.getElementById('historyList');
-  if (!list) return;
 
-  const statusIcon = { present:'✅', absent:'❌', late:'⏰', leave:'📋' };
-  const statusBg   = { present:'var(--green-bg)', absent:'var(--red-bg)', late:'var(--orange-bg)', leave:'var(--blue-bg)' };
+  if (!history.length) {
+    list.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:16px 0;text-align:center;">ยังไม่มีประวัติการเข้าเรียน</div>';
+    return;
+  }
 
-  list.innerHTML = HISTORY_DATA.map(h => `
+  list.innerHTML = history.map(h => `
     <div class="history-item">
-      <div class="hist-icon" style="background:${statusBg[h.status]};">${statusIcon[h.status]}</div>
+      <div class="hist-icon">${getStatusIcon(h.status)}</div>
       <div class="hist-info">
-        <div class="hist-course">${h.course}</div>
-        <div class="hist-date">${h.date}</div>
+        <div class="hist-course">${h.subject || '—'}</div>
+        <div class="hist-date">${h.checkinDate || '—'}</div>
       </div>
-      <div class="hist-time">${h.time}</div>
+      <div class="hist-time">${h.time || '—'}</div>
       ${statusBadge(h.status)}
     </div>
   `).join('');
+}
+function getStatusIcon(status) {
+  if (status === 'มา') return '✅';
+  if (status === 'สาย') return '⏰';
+  if (status === 'ขาด') return '❌';
+  return '❓';
+}
+
+function statusBadge(status) {
+  let cls = '';
+  if (status === 'มา') cls = 'badge-green';
+  else if (status === 'สาย') cls = 'badge-orange';
+  else if (status === 'ขาด') cls = 'badge-red';
+
+  return `<span class="status-badge ${cls}">${status}</span>`;
 }

@@ -32,10 +32,11 @@
         </a>
       </nav>
       <div class="sidebar-user">
-        <div class="avatar">น</div>
+        <div class="avatar" id="sidebarAvatar">น</div>
+      <script>(function(){try{var u=JSON.parse(localStorage.getItem("attendx_user")||sessionStorage.getItem("attendx_user")||"null");var url=u?localStorage.getItem("attendx_face_url_"+u.id):null;var el=document.getElementById("sidebarAvatar");if(!el)return;if(url){el.textContent="";var i=document.createElement("img");i.src=url;el.appendChild(i);}else if(u&&u.name){el.textContent=u.name.charAt(0).toUpperCase();}}catch(e){}})()</script>
         <div class="user-info">
-          <div class="user-name">นักศึกษา (ด)</div>
-          <div class="user-role">นักศึกษา — ด</div>
+          <div class="user-name" id="sidebarName">นักศึกษา (ด)</div>
+          <div class="user-role" id="sidebarRole">นักศึกษา — ด</div>
         </div>
       </div>
     </aside>

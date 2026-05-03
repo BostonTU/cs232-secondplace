@@ -2,25 +2,28 @@ package com.example.controller;
 
 import com.example.dto.LoginRequest;
 import com.example.dto.TUApiResponse;
+import com.example.entity.Student;
+import com.example.entity.Teacher;
 import com.example.entity.User;
+import com.example.repository.StudentRepository;
+import com.example.repository.TeacherRepository;
 import com.example.repository.UserRepository;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import jakarta.servlet.http.HttpSession;
-
 @RestController
 public class LoginController {
 
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
     private final RestTemplate restTemplate;
 
     @Value("${tu.api.url:https://restapi.tu.ac.th/api/v1/auth/Ad/verify2}")
@@ -29,206 +32,188 @@ public class LoginController {
     @Value("${tu.api.key}")
     private String applicationKey;
 
- // แก้ไข Constructor ให้รับ RestTemplate
     @Autowired
     public LoginController(UserRepository userRepository, RestTemplate restTemplate) {
         this.userRepository = userRepository;
-        this.restTemplate = restTemplate; 
+        this.restTemplate = restTemplate;
     }
 
     @PostMapping("/api/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest, HttpSession session) {
         System.out.println("Login attempt - username: " + loginRequest.getUsername());
-        
-        // ตรวจสอบ Local Admin/Test Users ก่อน
-        Optional<User> localUser = userRepository.findByUsername(loginRequest.getUsername());
+
+        // ตรวจสอบ Local User ก่อน (admin / test accounts)
+        Optional<User> localUser = userRepository.findByUsernameOrEmail(loginRequest.getUsername());
         if (localUser.isPresent() && localUser.get().getPassword() != null) {
             User user = localUser.get();
             if (user.getPassword().equals(loginRequest.getPassword())) {
-                System.out.println("Local login successful for: " + user.getUsername());
                 session.setAttribute("user", user);
-                Map<String, Object> response = new HashMap<>();
-                response.put("success", true);
-                response.put("message", "Login successful");
-                response.put("role", user.getRole());
-                response.put("username", user.getUsername());
-                response.put("fullName", user.getFullName());
-                response.put("email", user.getEmail());
-                return ResponseEntity.ok(response);
+                return ResponseEntity.ok(buildLoginResponse(user));
             }
         }
-        
-        // ถ้าไม่ใช่ local user ให้ลอง TU API
+
+        // TU API
         try {
-            // เรียก TU REST API
-            TUApiResponse tuResponse = verifyWithTUApi(
-                loginRequest.getUsername(), 
-                loginRequest.getPassword()
-            );
-            
+            TUApiResponse tuResponse = verifyWithTUApi(loginRequest.getUsername(), loginRequest.getPassword());
+
             if (tuResponse != null && tuResponse.isStatus()) {
-                // Login สำเร็จ - บันทึกหรืออัพเดทข้อมูลผู้ใช้ในฐานข้อมูล
                 User user = saveOrUpdateUser(tuResponse);
                 session.setAttribute("user", user);
-                
-                // ส่งข้อมูลกลับไปยัง Frontend
-                Map<String, Object> response = new HashMap<>();
-                response.put("success", true);
-                response.put("message", "Login successful");
-                response.put("role", user.getRole());
-                response.put("username", user.getUsername());
-                response.put("fullName", user.getFullName());
-                response.put("email", user.getEmail());
-                
-                return ResponseEntity.ok(response);
+                return ResponseEntity.ok(buildLoginResponse(user));
             } else {
-                // Login ไม่สำเร็จ
                 return ResponseEntity.status(401)
-                    .body(Map.of("success", false, "message", "Invalid credentials"));
+                        .body(Map.of("success", false, "message", "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง"));
             }
-            
+
         } catch (HttpClientErrorException e) {
             System.err.println("TU API Error: " + e.getStatusCode() + " - " + e.getMessage());
             return ResponseEntity.status(401)
-                .body(Map.of("success", false, "message", "Invalid credentials"));
-                
+                    .body(Map.of("success", false, "message", "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง"));
         } catch (Exception e) {
             System.err.println("Login error: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.status(500)
-                .body(Map.of("success", false, "message", "Server error: " + e.getMessage()));
+                    .body(Map.of("success", false, "message", "เกิดข้อผิดพลาดที่เซิร์ฟเวอร์"));
         }
     }
 
-    
-    
     @GetMapping("/api/profile")
     public ResponseEntity<?> getProfile(HttpSession session) {
         User user = (User) session.getAttribute("user");
         if (user == null) {
             return ResponseEntity.status(401).body(Map.of("success", false, "message", "Not logged in"));
         }
-        
         return ResponseEntity.ok(Map.of(
-            "username", user.getUsername(),
-            "fullName", user.getFullName(),
-            "email", user.getEmail(),
-            "role", user.getRole()
+                "username", user.getUsername(),
+                "fullName", user.getFullName(),
+                "email",    user.getEmail() != null ? user.getEmail() : "",
+                "role",     user.getRole()
         ));
     }
-    
-    /**
-     * เรียก TU REST API เพื่อตรวจสอบข้อมูลผู้ใช้
-     */
-    private TUApiResponse verifyWithTUApi(String username, String password) {
-        try {
-            // สร้าง Headers
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Application-Key", applicationKey);
-            
-            // สร้าง Request Body
-            Map<String, String> requestBody = new HashMap<>();
-            requestBody.put("UserName", username);
-            requestBody.put("PassWord", password);
-            
-            HttpEntity<Map<String, String>> entity = new HttpEntity<>(requestBody, headers);
-            
-            // เรียก API
-            System.out.println("Calling TU API: " + tuApiUrl);
-            ResponseEntity<TUApiResponse> response = restTemplate.exchange(
-                tuApiUrl,
-                HttpMethod.POST,
-                entity,
-                TUApiResponse.class
-            );
-            
-            System.out.println("TU API Response: " + response.getBody());
-            return response.getBody();
-            
-        } catch (Exception e) {
-            System.err.println("Error calling TU API: " + e.getMessage());
-            throw e;
-        }
+
+    @PostMapping("/api/logout")
+    public ResponseEntity<?> logout(HttpSession session) {
+        session.invalidate();
+        return ResponseEntity.ok(Map.of("success", true, "message", "Logged out"));
     }
 
-    /**
-     * บันทึกหรืออัพเดทข้อมูลผู้ใช้ในฐานข้อมูล
-     */
-    private User saveOrUpdateUser(TUApiResponse tuResponse) {
-        Optional<User> existingUser = userRepository.findByUsername(tuResponse.getUsername());
-        
-        User user;
-        if (existingUser.isPresent()) {
-            // อัพเดทข้อมูลผู้ใช้เดิม
-            user = existingUser.get();
-        } else {
-            // สร้างผู้ใช้ใหม่
-            user = new User();
-            user.setUsername(tuResponse.getUsername());
-        }
-        
-        // อัพเดทข้อมูล
-        user.setFullName(tuResponse.getDisplayname_en());
-        user.setEmail(tuResponse.getEmail());
-        
-        // กำหนด role (ปรับตามความต้องการ)
-        // ถ้าเป็นนักศึกษาให้ role = "Student", ถ้าเป็นบุคลากรให้ role = "Staff"
-        String role = determineRole(tuResponse.getType());
-        user.setRole(role);
-        
-        // บันทึกลงฐานข้อมูล
-        return userRepository.save(user);
+    @GetMapping("/logout")
+    public ResponseEntity<?> logoutGet(HttpSession session) {
+        session.invalidate();
+        return ResponseEntity.ok(Map.of("success", true, "message", "Logged out"));
     }
 
-    /**
-     * กำหนด role ตาม type ที่ได้จาก TU API
-     */
-    private String determineRole(String type) {
-        if (type == null) return "Student";
-        
-        switch (type.toLowerCase()) {
-            case "student":
-                return "Student";
-            case "employee":
-            case "staff":
-                return "Staff";
-            default:
-                return "Student";
-        }
-    }
-
-    /**
-     * Webhook endpoint สำหรับ TU API (POST)
-     */
     @PostMapping("/api/webhook")
     public ResponseEntity<?> webhook(@RequestBody Map<String, Object> payload) {
         System.out.println("Webhook received: " + payload);
-        
-        // ตอบกลับด้วย 200 OK
-        Map<String, String> response = new HashMap<>();
-        response.put("status", "success");
-        response.put("message", "Webhook received");
-        
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(Map.of("status", "success", "message", "Webhook received"));
     }
 
-    /**
-     * Webhook endpoint สำหรับ TU API ทดสอบ (GET)
-     */
     @GetMapping("/api/webhook")
     public ResponseEntity<?> webhookGet() {
-        System.out.println("Webhook health check");
-        
-        Map<String, String> response = new HashMap<>();
-        response.put("status", "success");
-        response.put("message", "Webhook endpoint is ready");
-        
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(Map.of("status", "success", "message", "Webhook endpoint is ready"));
     }
-    @GetMapping("/logout")
-    public String logout(HttpSession session) {
-        session.invalidate();
-        return "redirect:/login";
+
+    // ── Private helpers ────────────────────────────────────────────
+
+    private Map<String, Object> buildLoginResponse(User user) {
+        Map<String, Object> res = new HashMap<>();
+        res.put("success",  true);
+        res.put("message",  "Login successful");
+        res.put("role",     user.getRole());
+        res.put("username", user.getUsername());
+        res.put("fullName", user.getFullName());
+        res.put("email",    user.getEmail() != null ? user.getEmail() : "");
+        return res;
+    }
+
+    private TUApiResponse verifyWithTUApi(String username, String password) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Application-Key", applicationKey);
+
+        Map<String, String> requestBody = new HashMap<>();
+        requestBody.put("UserName", username);
+        requestBody.put("PassWord", password);
+
+        HttpEntity<Map<String, String>> entity = new HttpEntity<>(requestBody, headers);
+        System.out.println("Calling TU API: " + tuApiUrl);
+
+        ResponseEntity<TUApiResponse> response = restTemplate.exchange(
+                tuApiUrl, HttpMethod.POST, entity, TUApiResponse.class);
+
+        System.out.println("TU API Response: " + response.getBody());
+        return response.getBody();
+    }
+
+    @Autowired
+    private StudentRepository studentRepository;
+
+    @Autowired
+    private TeacherRepository teacherRepository;
+
+    private User saveOrUpdateUser(TUApiResponse tuResponse) {
+        Optional<User> existingUser = userRepository.findByUsername(tuResponse.getUsername());
+        User user = existingUser.orElseGet(User::new);
+
+        user.setUsername(tuResponse.getUsername());
+        // เอาชื่อภาษาไทยถ้ามี ถ้าไม่มีเอาภาษาอังกฤษ
+        String name = (tuResponse.getDisplayname_th() != null && !tuResponse.getDisplayname_th().isBlank())
+                ? tuResponse.getDisplayname_th()
+                : tuResponse.getDisplayname_en();
+        user.setFullName(name);
+        user.setEmail(tuResponse.getEmail());
+
+        String role = determineRole(tuResponse.getType());
+        user.setRole(role);
+
+        User saved = userRepository.save(user);
+
+        // auto สร้าง Students record
+        if ("Student".equals(role)) {
+            if (!studentRepository.existsById(saved.getUsername())) {
+                Student student = new Student();
+                student.setStudentId(saved.getUsername());
+                student.setStudentName(saved.getFullName());
+                student.setEmail(saved.getEmail());
+                studentRepository.save(student);
+            } else {
+                studentRepository.findById(saved.getUsername()).ifPresent(s -> {
+                    s.setStudentName(saved.getFullName());
+                    s.setEmail(saved.getEmail());
+                    studentRepository.save(s);
+                });
+            }
+        }
+
+        // auto สร้าง Teachers record
+        if ("Staff".equals(role)) {
+            if (!teacherRepository.existsById(saved.getUsername())) {
+                Teacher teacher = new Teacher();
+                teacher.setTeacherId(saved.getUsername());
+                teacher.setFullName(saved.getFullName());
+                teacher.setEmail(saved.getEmail());
+                // ✅ FIX: null-safe ป้องกัน NPE ถ้า TU API ไม่ส่ง department มา
+                teacher.setDepartment(tuResponse.getDepartment() != null ? tuResponse.getDepartment() : "");
+                teacherRepository.save(teacher);
+            } else {
+                teacherRepository.findById(saved.getUsername()).ifPresent(t -> {
+                    t.setFullName(saved.getFullName());
+                    t.setEmail(saved.getEmail());
+                    teacherRepository.save(t);
+                });
+            }
+        }
+
+        return saved;
+    }
+
+    private String determineRole(String type) {
+        if (type == null || type.isBlank()) return "Student";
+        return switch (type.toLowerCase().trim()) {
+            case "student"                    -> "Student";
+            // ✅ FIX: เพิ่ม "lecturer", "instructor" เผื่อ TU API return มาหลาย format
+            case "teacher", "employee", "staff", "lecturer", "instructor" -> "Staff";
+            default -> "Student";
+        };
     }
 }

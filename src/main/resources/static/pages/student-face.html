@@ -28,23 +28,41 @@
       gap: 16px;
     }
     .face-avatar-ring {
-      width: 140px;
-      height: 140px;
+      width: 150px;
+      height: 150px;
       border-radius: 50%;
-      border: 3px solid var(--yellow);
+      padding: 4px;
+      background: linear-gradient(135deg, #FFD600, #FF8C00, #FFD600);
+      background-size: 200% 200%;
+      animation: ringGlow 3s ease infinite;
+      box-shadow: 0 0 0 4px rgba(255,214,0,0.15), 0 8px 32px rgba(255,214,0,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    @keyframes ringGlow {
+      0%   { background-position: 0% 50%;   box-shadow: 0 0 0 4px rgba(255,214,0,0.15), 0 8px 32px rgba(255,214,0,0.3); }
+      50%  { background-position: 100% 50%; box-shadow: 0 0 0 6px rgba(255,140,0,0.2),  0 8px 40px rgba(255,140,0,0.4); }
+      100% { background-position: 0% 50%;   box-shadow: 0 0 0 4px rgba(255,214,0,0.15), 0 8px 32px rgba(255,214,0,0.3); }
+    }
+    .face-avatar-ring .face-avatar-inner {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
       overflow: hidden;
       background: var(--bg-page);
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 56px;
-      position: relative;
     }
     .face-avatar-ring img {
       width: 100%;
       height: 100%;
       object-fit: cover;
-      display: none;
+      display: block;
+      border-radius: 50%;
     }
     .face-status-chip {
       display: inline-flex;
@@ -192,7 +210,6 @@
   </style>
 </head>
 <body>
-  <div class="app-layout">
 
     <!-- ── Sidebar ── -->
     <aside class="sidebar" id="sidebar">
@@ -215,10 +232,11 @@
         </a>
       </nav>
       <div class="sidebar-user">
-        <div class="avatar" id="sidebarAvatar">น</div>
+        <div id="sidebarAvatar" class="avatar">น</div>
+      <script>(function(){try{var u=JSON.parse(localStorage.getItem("attendx_user")||sessionStorage.getItem("attendx_user")||"null");var url=u?localStorage.getItem("attendx_face_url_"+u.id):null;var el=document.getElementById("sidebarAvatar");if(!el)return;if(url){el.textContent="";var i=document.createElement("img");i.src=url;el.appendChild(i);}else if(u&&u.name){el.textContent=u.name.charAt(0).toUpperCase();}}catch(e){}})()</script>
         <div class="user-info">
           <div class="user-name" id="sidebarName">นักศึกษา</div>
-          <div class="user-role">นักศึกษา</div>
+          <div class="user-role" id="sidebarRole">นักศึกษา</div>
         </div>
       </div>
     </aside>
@@ -257,8 +275,10 @@
             <div style="font-size:14px;font-weight:700;color:var(--text-secondary);align-self:flex-start;">รูปปัจจุบันในระบบ</div>
 
             <div class="face-avatar-ring" id="currentFaceRing">
-              <img id="currentFaceImg" src="" alt="face" />
-              <span id="currentFaceEmoji">🤳</span>
+              <div class="face-avatar-inner">
+                <img id="currentFaceImg" src="" alt="face" />
+                <span id="currentFaceEmoji">🤳</span>
+              </div>
             </div>
 
             <div id="faceStatusChip" class="face-status-chip no-face">
@@ -435,26 +455,34 @@
   let pdpaConsented  = false;
   let currentFaceUrl = null; // mock: null = no face
 
-  // Mock upload history
-  const uploadHistory = JSON.parse(localStorage.getItem('attendx_face_history') || '[]');
+
+  let user = null;
+  let uploadHistory = [];
 
   // ── Init ─────────────────────────────────
   document.addEventListener('DOMContentLoaded', () => {
-    const user = getUser();
+    user = getUser();
+
     if (user) {
-      document.getElementById('sidebarName').textContent   = user.name?.split(' ')[0] || 'นักศึกษา';
-      document.getElementById('sidebarAvatar').textContent = user.name?.[0] || 'น';
+      document.getElementById('sidebarName').textContent =
+        user.name?.split(' ')[0] || 'นักศึกษา';
+      initSidebarAvatar();
+
+      uploadHistory = JSON.parse(
+        localStorage.getItem('attendx_face_history_' + user.id) || '[]'
+      );
     }
 
-    // Load saved face from localStorage (mock S3)
-    const savedFace = localStorage.getItem('attendx_face_url');
+    const savedFace = user
+      ? localStorage.getItem('attendx_face_url_' + user.id)
+      : null;
+
     if (savedFace) {
       setCurrentFace(savedFace);
     } else {
       document.getElementById('noFaceBanner').style.display = 'flex';
     }
 
-    // Check if PDPA already consented
     pdpaConsented = localStorage.getItem('attendx_pdpa_face') === 'true';
 
     renderHistory();
@@ -593,17 +621,39 @@
     const dataUrl = document.getElementById('uploadPreviewImg').src;
     localStorage.setItem('attendx_face_url', dataUrl);
     setCurrentFace(dataUrl);
-
-    // Save history
+	initSidebarAvatar();
+	
+    // Save history (resize thumbnail to 64x64 to save localStorage space)
     const now = new Date();
+    const thumbDataUrl = await new Promise(res => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 64; canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+      const tmpImg = new Image();
+      tmpImg.onload = () => { ctx.drawImage(tmpImg, 0, 0, 64, 64); res(canvas.toDataURL('image/jpeg', 0.6)); };
+      tmpImg.src = dataUrl;
+    });
     uploadHistory.unshift({
       time: now.toLocaleString('th-TH'),
       name: selectedFile.name,
       size: (selectedFile.size / 1024).toFixed(0) + ' KB',
-      dataUrl,
+      thumb: thumbDataUrl,
     });
     if (uploadHistory.length > 5) uploadHistory.pop();
-    localStorage.setItem('attendx_face_history', JSON.stringify(uploadHistory));
+	const user = getUser();
+	if (user) {
+	  localStorage.setItem('attendx_face_url_' + user.id, dataUrl);
+	  localStorage.setItem('attendx_face_history_' + user.id, JSON.stringify(uploadHistory));
+	  // อัปเดต sidebar avatar ทันทีโดยไม่ต้อง reload
+	  const avatarEl = document.getElementById('sidebarAvatar');
+	  if (avatarEl) {
+	    avatarEl.textContent = '';
+	    const img = document.createElement('img');
+	    img.src = dataUrl;
+	    img.alt = 'profile';
+	    avatarEl.appendChild(img);
+	  }
+	}
     renderHistory();
 
     // Reset UI
@@ -634,15 +684,15 @@
     el.innerHTML = uploadHistory.map((h, i) => `
       <div class="face-history-item">
         <div class="face-history-thumb">
-          ${h.dataUrl
-            ? `<img src="${h.dataUrl}" alt="thumb" />`
-            : '🤳'}
+          ${h.thumb ? `<img src="${h.thumb}" alt="thumb" />` : '🤳'}
         </div>
         <div style="flex:1;min-width:0;">
           <div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${h.name}</div>
           <div style="font-size:11px;color:var(--text-muted);">${h.time} · ${h.size}</div>
         </div>
-        ${i === 0 ? '<span class="badge badge-green" style="font-size:10px;">ใช้งานอยู่</span>' : ''}
+		${currentFaceUrl && i === 0
+		  ? '<span class="badge badge-green">ใช้งานอยู่</span>'
+		  : ''}
       </div>
     `).join('');
   }
@@ -657,8 +707,21 @@
   async function confirmDelete() {
     closeDeleteModal();
     await new Promise(r => setTimeout(r, 800));
-    localStorage.removeItem('attendx_face_url');
+
+    if (user) {
+      localStorage.removeItem('attendx_face_url_' + user.id);
+    }
+
+ 
     currentFaceUrl = null;
+
+    renderHistory();
+    const avatarEl = document.getElementById('sidebarAvatar');
+    if (avatarEl) {
+      avatarEl.textContent = '';
+      const u = getUser();
+      avatarEl.textContent = u && u.name ? u.name.charAt(0).toUpperCase() : '?';
+    }
 
     const img   = document.getElementById('currentFaceImg');
     const emoji = document.getElementById('currentFaceEmoji');
@@ -672,7 +735,9 @@
     document.getElementById('noFaceBanner').style.display = 'flex';
 
     showToast('ลบรูปออกจากระบบแล้ว', 'success');
+	
   }
+
 
   // Close modals on overlay click
   document.addEventListener('click', e => {

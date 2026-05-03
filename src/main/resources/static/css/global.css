@@ -208,6 +208,10 @@ input, textarea, select { font-family: inherit; }
   width: 36px; height: 36px; border-radius: 50%;
   background: var(--yellow); display: flex; align-items: center; justify-content: center;
   font-size: 14px; font-weight: 700; color: var(--dark-navy); flex-shrink: 0;
+  overflow: hidden;
+}
+.sidebar-user .avatar img {
+  width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block;
 }
 .sidebar-user .user-info { overflow: hidden; min-width: 0; }
 .sidebar-user .user-info .user-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

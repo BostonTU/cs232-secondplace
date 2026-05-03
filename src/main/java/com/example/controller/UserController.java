@@ -8,20 +8,26 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
+
 @RestController
-@RequestMapping("/api/users") // กำหนด path หลักสำหรับ user
+@RequestMapping("/api/users")
 public class UserController {
 
-    @GetMapping("/current") // Endpoint คือ /api/users/current
-    public ResponseEntity<User> getCurrentUser(HttpSession session) {
-        // ดึงข้อมูล User object ที่เราเก็บไว้ใน session ตอน login
+    @GetMapping("/current")
+    public ResponseEntity<?> getCurrentUser(HttpSession session) {
         User currentUser = (User) session.getAttribute("user");
 
         if (currentUser != null) {
-            // ถ้ามี user ใน session, ส่งข้อมูล user กลับไปพร้อม status 200 OK
-            return ResponseEntity.ok(currentUser);
+            // ✅ FIX: return เฉพาะ field ที่จำเป็น ไม่ return password ออกไป
+            return ResponseEntity.ok(Map.of(
+                "id",       currentUser.getId(),
+                "username", currentUser.getUsername(),
+                "fullName", currentUser.getFullName(),
+                "email",    currentUser.getEmail() != null ? currentUser.getEmail() : "",
+                "role",     currentUser.getRole()
+            ));
         } else {
-            // ถ้าไม่มีใคร login, ส่ง status 401 Unauthorized กลับไป
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
     }

@@ -92,7 +92,36 @@ function markAllRead() {
   showToast('อ่านการแจ้งเตือนทั้งหมดแล้ว', 'success');
 }
 
-// ── Auth Helpers ─────────────────────────────
+// ── Sidebar Avatar ───────────────────────────
+function initSidebarAvatar() {
+  const avatarEl = document.getElementById('sidebarAvatar');
+  if (!avatarEl) return;
+  if (avatarEl.querySelector('img')) return; // ถูก set โดย inline script แล้ว
+
+  const user = getUser();
+  const faceUrl = user ? localStorage.getItem('attendx_face_url_' + user.id) : null;
+  if (faceUrl) {
+    avatarEl.textContent = '';
+    const img = document.createElement('img');
+    img.src = faceUrl;
+    img.alt = 'profile';
+    img.onerror = () => { img.remove(); _setAvatarInitials(avatarEl); };
+    avatarEl.appendChild(img);
+  } else {
+    _setAvatarInitials(avatarEl);
+  }
+}
+
+function _setAvatarInitials(avatarEl) {
+  const user = getUser();
+  if (!user) return;
+  const initials = user.name ? user.name.charAt(0).toUpperCase() : '?';
+  avatarEl.textContent = initials;
+}
+
+document.addEventListener('DOMContentLoaded', initSidebarAvatar);
+
+
 function logout() {
   sessionStorage.clear();
   localStorage.removeItem('attendx_user');

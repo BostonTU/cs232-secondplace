@@ -2,109 +2,185 @@
    AttendX - Teacher QR Generator JS
    ============================================ */
 
-let sessionActive  = false;
-let timerInterval  = null;
-let secondsLeft    = 300;
-let qrInstance     = null;
-let checkinList    = [];
+let sessionActive      = false;
+let timerInterval      = null;
+let secondsLeft        = 300;
+let qrInstance         = null;
+let currentSessionCode = null;
 
-// ── Init ──────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  // nothing auto-starts
+  loadTeachingSubjects();
 });
 
-// ── Start Session ─────────────────────────────
-function startSession() {
-  const subject  = document.getElementById('sessionSubject').value;
-  const room     = document.getElementById('sessionRoom').value.trim() || 'SC-301';
-  const duration = parseInt(document.getElementById('sessionDuration').value) || 5;
-
-  secondsLeft  = duration * 60;
-  checkinList  = [];
-  sessionActive = true;
-
-  // Generate session ID
-  const sessionId = subject + '-' + Math.random().toString(36).substring(2, 9).toUpperCase();
-  const sessionUrl = `https://attendx.com/checkin/${sessionId}`;
-  const now = new Date();
-
-  // Show active session UI
-  document.getElementById('startSessionCard').style.display   = 'none';
-  document.getElementById('activeSessionWrap').style.display  = 'block';
-
-  // Fill info panel
-  document.getElementById('qrCourseLabel').textContent  = subject;
-  document.getElementById('qrRoomLabel').textContent     = `ห้อง ${room}`;
-  document.getElementById('infoSessionId').textContent   = sessionId;
-  document.getElementById('infoSubject').textContent     = subject + ' — Web Application Development';
-  document.getElementById('infoRoom').textContent        = room;
-  document.getElementById('infoStart').textContent       = formatTime(now);
-
-  // Generate QR code
-  const qrBox = document.getElementById('qrCodeBox');
-  qrBox.innerHTML = '';
+// ── โหลดวิชาที่อาจารย์สอนจาก DB ──────────────
+async function loadTeachingSubjects() {
   try {
-    qrInstance = new QRCode(qrBox, {
-      text: sessionUrl,
-      width: 210, height: 210,
-      colorDark: '#1A2035',
-      colorLight: '#FFFFFF',
-      correctLevel: QRCode.CorrectLevel.H,
+    const res  = await fetch('/api/subjects/teaching', { credentials: 'include' });
+    const data = await res.json();
+    if (!data.success) return;
+
+    const select = document.getElementById('sessionSubject');
+    select.innerHTML = '<option value="">— เลือกวิชา —</option>';
+    data.data.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value       = s.subject_code;
+      opt.textContent = `${s.subject_code} - ${s.subject_name}`;
+      select.appendChild(opt);
     });
   } catch (e) {
-    qrBox.innerHTML = `<div style="padding:20px;text-align:center;font-size:12px;color:var(--text-muted);">QR: ${sessionId}</div>`;
+    console.warn('โหลดวิชาไม่สำเร็จ ใช้ค่า hardcode แทน');
+  }
+}
+
+// ── ดึง GPS ของอาจารย์ ────────────────────────
+function getTeacherPosition() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve({ lat: null, lng: null });
+    const timer = setTimeout(() => resolve({ lat: null, lng: null }), 5000);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        clearTimeout(timer);
+        resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      },
+      () => { clearTimeout(timer); resolve({ lat: null, lng: null }); }
+    );
+  });
+}
+
+// ── Start Session ─────────────────────────────
+async function startSession() {
+  const subject  = document.getElementById('sessionSubject').value;
+  const room     = document.getElementById('sessionRoom').value.trim() || '';
+  const duration = parseInt(document.getElementById('sessionDuration').value) || 5;
+
+  if (!subject) {
+    showToast('กรุณาเลือกวิชาก่อน', 'error');
+    return;
   }
 
-  // Store session link for copy
-  document.getElementById('copyLinkBtn').dataset.url = sessionUrl;
+  // ✅ ดึง GPS ของอาจารย์เป็นพิกัดอ้างอิง
+  showToast('กำลังดึงตำแหน่ง GPS...', 'info', 2000);
+  const { lat, lng } = await getTeacherPosition();
 
-  // Start countdown
-  updateTimer();
-  timerInterval = setInterval(() => {
-    secondsLeft--;
-    updateTimer();
-    if (secondsLeft <= 0) endSession();
+  const body = { subject, room, duration };
+  if (lat !== null && lng !== null) {
+    body.latitude    = lat;
+    body.longitude   = lng;
+    body.radiusMeter = 100; // 100 เมตร default
+  }
+  // ถ้า GPS ไม่ได้ → ไม่ส่ง lat/lng → backend จะไม่บังคับเช็ค GPS
 
-    // Simulate random checkins every few seconds
-    if (Math.random() < 0.05 && checkinList.length < MOCK_STUDENTS.length) {
-      const remaining = MOCK_STUDENTS.filter(s => !checkinList.find(c => c.id === s.id));
-      if (remaining.length) {
-        const student = remaining[Math.floor(Math.random() * remaining.length)];
-        checkinList.push({ id: student.id, name: student.name, time: formatTime() });
-        updateCheckinPanel();
-        showToast(`${student.name} เช็คชื่อแล้ว`, 'success', 2000);
-      }
+  try {
+    const response = await fetch('/api/session/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      credentials: 'include'
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      showToast(data.message || 'ไม่สามารถสร้าง Session ได้', 'error');
+      return;
     }
-  }, 1000);
 
-  showToast('เริ่ม Session สำเร็จ', 'success');
+    currentSessionCode = data.sessionCode;
+    secondsLeft        = duration * 60;
+    sessionActive      = true;
+
+    const sessionUrl = `${window.location.origin}/pages/student-checkin.html?session=${data.sessionCode}`;
+    const now        = new Date();
+
+    document.getElementById('startSessionCard').style.display  = 'none';
+    document.getElementById('activeSessionWrap').style.display = 'block';
+
+    document.getElementById('qrCourseLabel').textContent = data.subject;
+    document.getElementById('qrRoomLabel').textContent   = `ห้อง ${data.room}`;
+    document.getElementById('infoSessionId').textContent = data.sessionCode;
+    document.getElementById('infoSubject').textContent   = data.subject;
+    document.getElementById('infoRoom').textContent      = data.room;
+    document.getElementById('infoStart').textContent     = formatTime(now);
+    document.getElementById('infoCheckins').textContent  = '0 คน';
+
+    const gpsNote = document.getElementById('gpsNote');
+    if (gpsNote) {
+      gpsNote.textContent = data.hasGps
+        ? `📍 GPS เปิดอยู่ — รัศมี 100 ม. (${lat?.toFixed(4)}, ${lng?.toFixed(4)})`
+        : '📍 ไม่ได้ใช้ GPS — นักศึกษาทุกคนเช็คชื่อได้';
+      gpsNote.style.display = 'block';
+    }
+
+    const qrBox = document.getElementById('qrCodeBox');
+    qrBox.innerHTML = '';
+    try {
+      qrInstance = new QRCode(qrBox, {
+        text: sessionUrl,
+        width: 210, height: 210,
+        colorDark: '#1A2035', colorLight: '#FFFFFF',
+        correctLevel: QRCode.CorrectLevel.H,
+      });
+    } catch (e) {
+      qrBox.innerHTML = `<div style="padding:20px;text-align:center;font-size:13px;color:var(--text-muted);">${data.sessionCode}</div>`;
+    }
+
+    document.getElementById('copyLinkBtn').dataset.url = sessionUrl;
+
+    updateTimer();
+    timerInterval = setInterval(async () => {
+      secondsLeft--;
+      updateTimer();
+      if (secondsLeft <= 0) await endSession();
+    }, 1000);
+
+    const gpsMsg = data.hasGps ? ' (GPS เปิด)' : ' (ไม่มี GPS)';
+    showToast(`สร้าง Session สำเร็จ: ${data.sessionCode}${gpsMsg}`, 'success');
+
+  } catch (err) {
+    showToast('เกิดข้อผิดพลาด กรุณาลองใหม่', 'error');
+    console.error(err);
+  }
 }
 
-// ── Timer ─────────────────────────────────────
+// ── Timer ──────────────────────────────────────
 function updateTimer() {
-  const mm = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
-  const ss = String(secondsLeft % 60).padStart(2, '0');
+  const mm      = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
+  const ss      = String(secondsLeft % 60).padStart(2, '0');
   const timerEl = document.getElementById('qrTimer');
-  timerEl.textContent = `${mm}:${ss}`;
-  timerEl.className   = `qr-timer${secondsLeft <= 60 ? ' warning' : ''}`;
+  if (timerEl) {
+    timerEl.textContent = `${mm}:${ss}`;
+    timerEl.className   = `qr-timer${secondsLeft <= 60 ? ' warning' : ''}`;
+  }
 }
 
-// ── End Session ───────────────────────────────
-function endSession() {
+// ── End Session ────────────────────────────────
+async function endSession() {
   clearInterval(timerInterval);
   sessionActive = false;
 
-  showToast(`จบ Session แล้ว — เช็คชื่อ ${checkinList.length} คน`, 'info');
+  if (currentSessionCode) {
+    try {
+      await fetch('/api/session/end', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionCode: currentSessionCode }),
+        credentials: 'include'
+      });
+    } catch (err) {
+      console.error('End session error:', err);
+    }
+  }
 
+  showToast('จบ Session แล้ว', 'info');
   setTimeout(() => {
     document.getElementById('startSessionCard').style.display  = 'block';
     document.getElementById('activeSessionWrap').style.display = 'none';
     qrInstance = null;
-    checkinList = [];
-  }, 2000);
+    currentSessionCode = null;
+  }, 1500);
 }
 
-// ── Copy Link ─────────────────────────────────
+// ── Copy Link ──────────────────────────────────
 function copySessionLink() {
   const url = document.getElementById('copyLinkBtn').dataset.url;
   if (!url) return;
@@ -119,22 +195,4 @@ function copySessionLink() {
     document.body.removeChild(el);
     showToast('คัดลอก Link แล้ว', 'success');
   }
-}
-
-// ── Checkin Panel ─────────────────────────────
-function updateCheckinPanel() {
-  const list = document.getElementById('checkinMiniList');
-  const info = document.getElementById('infoCheckins');
-  if (!list || !info) return;
-
-  info.textContent = `${checkinList.length} คน`;
-
-  list.innerHTML = checkinList.length
-    ? checkinList.slice().reverse().map(c => `
-        <div class="checkin-mini-item">
-          <span>✅</span>
-          <span class="check-name">${c.name}</span>
-          <span class="check-time">${c.time}</span>
-        </div>`).join('')
-    : '<div style="font-size:13px;color:var(--text-muted);padding:8px 0;">ยังไม่มีนักศึกษาเช็คชื่อ</div>';
 }
