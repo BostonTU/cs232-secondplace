@@ -30,6 +30,8 @@ services:
       SPRING_DATASOURCE_URL: "jdbc:sqlserver://sqlserver:1433;databaseName=AttendanceDB;encrypt=true;trustServerCertificate=true"
       SPRING_DATASOURCE_USERNAME: "sa"
       SPRING_DATASOURCE_PASSWORD: "YourStrong@Passw0rd"
+    volumes:
+      - ./uploads:/app/uploads
     depends_on:
       - sqlserver
     networks:

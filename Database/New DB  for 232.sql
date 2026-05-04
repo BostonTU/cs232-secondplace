@@ -187,15 +187,15 @@ INSERT INTO [dbo].[Students] (student_id, student_name, email) VALUES
 GO
 
 INSERT INTO [dbo].[Subjects] (subject_code, subject_name, credits) VALUES
-    ('CS232', N'Object-Oriented Programming', 3),
+    ('CS232', N'Introduction to Cloud Computing Technology', 3),
     ('CS301', N'Data Structures', 3)
 GO
 
 INSERT INTO [dbo].[Teacher_Subjects] (teacher_id, subject_code, semester, section) VALUES
-    ('teacher1', 'CS232', '2/2567', 1),
-    ('teacher1', 'CS301', '2/2567', 1)
+    ('teacher1', 'CS232', '2/2568', 1),
+    ('teacher1', 'CS301', '2/2568', 1)
 GO
 
 INSERT INTO [dbo].[Student_Enrollments] (student_id, subject_code, semester, section) VALUES
-    ('6501234', 'CS232', '2/2567', 1)
+    ('6501234', 'CS232', '2/2568', 1)
 GO

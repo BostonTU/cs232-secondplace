@@ -7,7 +7,19 @@ let allLeaves     = [];
 let pendingAction = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // ✅ FIX: ตรวจสอบ auth และโหลด user info ใน sidebar
+  const user = typeof getUser === 'function' ? getUser() : null;
+  if (!user) { window.location.href = 'login.html'; return; }
+
+  const nameEl = document.getElementById('sidebarName');
+  if (nameEl) nameEl.textContent = user.name?.split(' ')[0] || 'อาจารย์';
+  if (typeof initSidebarAvatar === 'function') initSidebarAvatar();
+
   await loadLeaves();
+  // ✅ FIX: ไม่เรียก loadTeacherNotifications() อีก เพราะ renderSummary() จัดการ leaveNavBadge แล้ว
+  // loadTeacherNotifications() จะ overwrite badge ที่ renderSummary() set ไว้ด้วย API call ซ้ำ
+  // เรียกแค่เพื่ออัปเดต bell notifBadge และ dropdown list เท่านั้น
+  _updateBellNotif();
 });
 
 // ── โหลดใบลาจาก API ───────────────────────────
@@ -21,10 +33,38 @@ async function loadLeaves() {
     allLeaves = json.data || [];
     renderSummary();
     renderLeaveList(currentFilter);
+    // ✅ อัปเดต bell dropdown จากข้อมูลที่โหลดมาแล้ว โดยไม่ยิง API ซ้ำ
+    _updateBellNotif();
   } catch (err) {
     console.error(err);
     showToast('โหลดข้อมูลไม่สำเร็จ', 'error');
   }
+}
+
+// อัปเดตแค่ bell icon + notif dropdown จาก allLeaves ที่มีอยู่แล้ว
+// ไม่แตะ leaveNavBadge (renderSummary() จัดการแล้ว)
+function _updateBellNotif() {
+  const pending = allLeaves.filter(l => l.status === 'pending');
+  const readIds = JSON.parse(localStorage.getItem('attendx_read_notifs') || '[]');
+  const notifs  = pending.slice(0, 5).map(l => ({
+    icon:   '📋',
+    title:  `คำร้องลาใหม่: ${l.studentName || l.studentId}`,
+    time:   typeof formatTimeAgo === 'function' ? formatTimeAgo(l.submittedAt) : '',
+    unread: !readIds.includes(String(l.id)),
+    id:     l.id,
+    url:    'teacher-leave.html'
+  }));
+
+  if (typeof renderNotifList === 'function') {
+    renderNotifList(
+      notifs.length ? notifs : [{ icon: '✅', title: 'ไม่มีการแจ้งเตือนใหม่', time: '', unread: false, url: '#' }],
+      'notifList'
+    );
+  }
+
+  const unread = notifs.filter(n => n.unread).length;
+  const notifBadge = document.getElementById('notifBadge');
+  if (notifBadge) { notifBadge.textContent = unread; notifBadge.style.display = unread ? 'flex' : 'none'; }
 }
 
 // ── Summary Row ───────────────────────────────
@@ -46,7 +86,10 @@ function renderSummary() {
   }
 
   const badge = document.getElementById('leaveNavBadge');
-  if (badge) badge.textContent = counts.pending;
+  if (badge) {
+    badge.textContent   = counts.pending;
+    badge.style.display = counts.pending > 0 ? 'inline-flex' : 'none';
+  }
 }
 
 // ── Filter Tabs ───────────────────────────────
@@ -60,7 +103,8 @@ function filterLeave(filter) {
 }
 
 // ── Render Leave List ─────────────────────────
-const TYPE_LABELS = { sick:'ลาป่วย', personal:'ลากิจ', other:'อื่นๆ' };
+// TYPE_LABELS ตรงกับค่าที่ DB เก็บจริง (ภาษาไทย)
+const TYPE_LABELS = { 'ป่วย':'ลาป่วย', 'กิจ':'ลากิจ', 'อื่นๆ':'อื่นๆ', sick:'ลาป่วย', personal:'ลากิจ', other:'อื่นๆ' };
 
 function renderLeaveList(filter) {
   const list = document.getElementById('leaveList');
@@ -177,6 +221,7 @@ async function confirmAction() {
       if (leave) leave.status = action;
       renderSummary();
       renderLeaveList(currentFilter);
+      _updateBellNotif();
       showToast(action==='approved'?`อนุมัติใบลาแล้ว`:`ปฏิเสธใบลาแล้ว`, action==='approved'?'success':'error');
     } else {
       showToast(json.message||'เกิดข้อผิดพลาด', 'error');

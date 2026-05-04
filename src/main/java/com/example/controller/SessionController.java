@@ -30,7 +30,7 @@ public class SessionController {
 
         String subject  = (String) body.getOrDefault("subject", "");
         String room     = (String) body.getOrDefault("room", "");
-        int    duration = parseInt(body.getOrDefault("duration", 5).toString(), 5);
+        int    duration = parseIntObj(body.getOrDefault("duration", 5), 5);
 
         if (subject.isBlank()) {
             return ResponseEntity.badRequest()
@@ -131,6 +131,15 @@ public class SessionController {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    // ✅ FIX: รองรับกรณี JSON ส่ง duration มาเป็น Double (เช่น 5.0) ซึ่ง parseInt จะ crash
+    private int parseIntObj(Object val, int fallback) {
+        if (val == null) return fallback;
+        try {
+            if (val instanceof Number) return ((Number) val).intValue();
+            return Integer.parseInt(val.toString().replace(".0", ""));
+        } catch (NumberFormatException e) { return fallback; }
     }
 
     private int parseInt(String val, int fallback) {

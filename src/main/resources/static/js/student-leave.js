@@ -12,6 +12,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     initSidebarAvatar();
   }
 
+  loadStudentNotifications();
+
   const dateInput = document.getElementById('leaveDate');
   if (dateInput) dateInput.value = formatDate();
 

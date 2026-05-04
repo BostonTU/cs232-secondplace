@@ -25,9 +25,7 @@ public class AttendanceController {
     @Autowired private SessionRepository sessionRepo;
     @Autowired private UserRepository userRepo;
 
-    // ── นักศึกษาเช็คชื่อผ่าน teacher/attendance/checkin (legacy endpoint) ──
-    // ✅ FIX: ดึง studentId จาก session เสมอ ป้องกันการปลอมแปลง
-    // ✅ FIX: return JSON แทน plain String
+    // ── นักศึกษาเช็คชื่อผ่าน teacher/attendance/checkin ──
     @PostMapping("/checkin")
     public ResponseEntity<?> checkIn(@RequestBody CheckInRequest req,
                                      HttpServletRequest request,
@@ -176,7 +174,8 @@ public class AttendanceController {
         for (Object[] row : raw) {
             String studentId = (String) row[0];
             String status    = (String) row[1];
-            long   count     = (long)   row[2];
+            // ✅ FIX: COUNT อาจ return Long หรือ Integer ขึ้นกับ JDBC driver — ใช้ Number แทน cast ตรงๆ
+            long   count     = ((Number) row[2]).longValue();
 
             statsMap.putIfAbsent(studentId, new LinkedHashMap<>(Map.of(
                     "studentId", studentId, "fullName", studentId,

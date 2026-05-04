@@ -38,32 +38,40 @@ document.addEventListener('DOMContentLoaded', () => {
     if (roleEl) roleEl.textContent = `นักศึกษา`;
     initSidebarAvatar();
   }
-  
+  loadStudentNotifications();
   loadStats();
 });
 
 function renderOverallStats(summary) {
-  document.getElementById('statPresent').textContent = summary.present;
-  document.getElementById('statAbsent').textContent  = summary.absent;
-  document.getElementById('statLate').textContent    = summary.late;
+  const presentEl = document.getElementById('statPresent');
+  const absentEl  = document.getElementById('statAbsent');
+  const lateEl    = document.getElementById('statLate');
+  // ✅ FIX: null-safe เผื่อ element ไม่มีอยู่ใน HTML
+  if (presentEl) presentEl.textContent = summary.present;
+  if (absentEl)  absentEl.textContent  = summary.absent;
+  if (lateEl)    lateEl.textContent    = summary.late;
 }
 
 function renderSubjectStats(history = []) {
   const map = {};
 
   history.forEach(h => {
-    if (!map[h.subject]) {
-      map[h.subject] = { present:0, late:0, absent:0, total:0 };
+    // ✅ FIX: ข้าม record ที่ไม่มีชื่อวิชา (session อาจถูกลบแล้ว)
+    const subjectKey = h.subject || '(ไม่ทราบวิชา)';
+    if (!map[subjectKey]) {
+      map[subjectKey] = { present:0, late:0, absent:0, total:0 };
     }
 
-    map[h.subject].total++;
+    map[subjectKey].total++;
 
-    if (h.status === 'มา') map[h.subject].present++;
-    else if (h.status === 'สาย') map[h.subject].late++;
-    else if (h.status === 'ขาด') map[h.subject].absent++;
+    if (h.status === 'มา') map[subjectKey].present++;
+    else if (h.status === 'สาย') map[subjectKey].late++;
+    else if (h.status === 'ขาด') map[subjectKey].absent++;
   });
 
   const container = document.getElementById('subjectStatsList');
+  // ✅ FIX: null-safe เผื่อ element ไม่มี
+  if (!container) return;
 
   container.innerHTML = Object.entries(map).map(([subject, s]) => {
     const pct = Math.round((s.present + s.late * 0.5) / s.total * 100);
@@ -107,13 +115,4 @@ function getStatusIcon(status) {
   if (status === 'สาย') return '⏰';
   if (status === 'ขาด') return '❌';
   return '❓';
-}
-
-function statusBadge(status) {
-  let cls = '';
-  if (status === 'มา') cls = 'badge-green';
-  else if (status === 'สาย') cls = 'badge-orange';
-  else if (status === 'ขาด') cls = 'badge-red';
-
-  return `<span class="status-badge ${cls}">${status}</span>`;
 }

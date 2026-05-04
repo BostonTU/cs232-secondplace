@@ -12,6 +12,7 @@ import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
@@ -32,6 +33,9 @@ public class LoginController {
     @Value("${tu.api.key}")
     private String applicationKey;
 
+    @Autowired
+    private JdbcTemplate jdbc;
+    
     @Autowired
     public LoginController(UserRepository userRepository, RestTemplate restTemplate) {
         this.userRepository = userRepository;
@@ -183,6 +187,14 @@ public class LoginController {
                     studentRepository.save(s);
                 });
             }
+
+            // ✅ Auto-enroll CS232 ทุก login ครั้งแรก
+            jdbc.update(
+            	    "IF NOT EXISTS (SELECT 1 FROM Student_Enrollments WHERE student_id = ? AND subject_code = ?) " +
+            	    "INSERT INTO Student_Enrollments (student_id, subject_code, semester, section) VALUES (?, ?, ?, ?)",
+            	    saved.getUsername(), "CS232",
+            	    saved.getUsername(), "CS232", "2/2568", 1
+            	);
         }
 
         // auto สร้าง Teachers record

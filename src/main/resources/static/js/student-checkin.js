@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	if (sbName) sbName.textContent = (user.name || '').split(' ')[0] || 'นักศึกษา';
 	initSidebarAvatar();
 
-	renderNotifList(MOCK_NOTIFS_STUDENT, 'notifList');
+	loadStudentNotifications();
 	checkLocation();
 
 	document.addEventListener('keydown', e => {

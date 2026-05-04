@@ -38,14 +38,14 @@ public class LeaveRequestService {
         return repo.findByStudentIdOrderBySubmittedAtDesc(studentId);
     }
     
-        public List<LeaveRequest> getAll() {
-            return repo.findAllByOrderBySubmittedAtDesc();
-        }
-
-        public LeaveRequest updateStatus(Long id, String status) {
-            LeaveRequest leave = repo.findById(id)
-                .orElseThrow(() -> new RuntimeException("ไม่พบใบลา id=" + id));
-            leave.setStatus(status);
-            return repo.save(leave);
-        }
+    public List<LeaveRequest> getAll() {
+        return repo.findAllByOrderBySubmittedAtDesc();
     }
+
+    public LeaveRequest updateStatus(Long id, String status) {
+        LeaveRequest leave = repo.findById(id)
+            .orElseThrow(() -> new RuntimeException("ไม่พบใบลา id=" + id));
+        leave.setStatus(status);
+        return repo.save(leave);
+    }
+}

@@ -40,8 +40,10 @@ public class StudentLeaveRequestController {
 
             if (file != null && !file.isEmpty()) {
                 String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
-                Path path = Paths.get("uploads/" + filename);
-                Files.createDirectories(path.getParent());
+                // ใช้ absolute path ให้ตรงกับ Docker volume mount
+                Path uploadDir = Paths.get("/app/uploads");
+                Files.createDirectories(uploadDir);
+                Path path = uploadDir.resolve(filename);
                 Files.write(path, file.getBytes());
                 fileUrl = filename;
             }

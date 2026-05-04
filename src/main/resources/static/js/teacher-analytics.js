@@ -6,7 +6,16 @@ let analyticsData = [];
 let tableData     = [];
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // ✅ FIX: ตรวจสอบ auth และโหลด user info ใน sidebar
+  const user = typeof getUser === 'function' ? getUser() : null;
+  if (!user) { window.location.href = 'login.html'; return; }
+
+  const nameEl = document.getElementById('sidebarName');
+  if (nameEl) nameEl.textContent = user.name?.split(' ')[0] || 'อาจารย์';
+  if (typeof initSidebarAvatar === 'function') initSidebarAvatar();
+
   await loadAnalytics();
+  loadTeacherNotifications();
 });
 
 // ── โหลดสถิติจาก API ──────────────────────────
@@ -16,7 +25,7 @@ async function loadAnalytics() {
     if (res.status === 401) { window.location.href = 'login.html'; return; }
     const json = await res.json();
 
-    if (!json.message || json.message !== 'success') {
+    if (!json.success) {
       showToast('โหลดข้อมูลไม่สำเร็จ', 'error'); return;
     }
 
@@ -31,8 +40,13 @@ async function loadAnalytics() {
     }));
 
     tableData = [...analyticsData];
-    drawPieChart();
-    renderTable(tableData);
+	const sub = document.getElementById('analyticsSubtitle');
+	if (sub) sub.textContent = `ภาพรวมการเข้าเรียน${json.subject ? ' ' + json.subject : ''} ภาคเรียน 1/2568`;
+	
+	drawPieChart();
+	drawBarChart();
+	renderSummaryCards();
+	renderTable(tableData);
 
   } catch (err) {
     console.error(err);
@@ -136,4 +150,79 @@ function filterTable(query) {
   const q=query.toLowerCase().trim();
   tableData=q?analyticsData.filter(s=>s.name.toLowerCase().includes(q)||s.id.includes(q)):[...analyticsData];
   renderTable(tableData);
+}
+
+// ── Summary Cards ─────────────────────────────
+function renderSummaryCards() {
+  const wrap = document.getElementById('analyticsSummary');
+  if (!wrap || !analyticsData.length) return;
+
+  const total   = analyticsData.length;
+  const allPct  = analyticsData.map(s => s.total > 0 ? Math.round((s.present + s.late * 0.5) / s.total * 100) : 0);
+  const avgPct  = Math.round(allPct.reduce((a, b) => a + b, 0) / total);
+  const passing = allPct.filter(p => p >= 80).length;
+  const risk    = allPct.filter(p => p >= 60 && p < 80).length;
+  const failing = allPct.filter(p => p < 60).length;
+
+  wrap.innerHTML = [
+    { icon: '👥', label: 'นักศึกษาทั้งหมด', value: `${total} คน`,    bg: 'var(--yellow-light)' },
+    { icon: '📊', label: 'เฉลี่ยเข้าเรียน',  value: `${avgPct}%`,    bg: 'var(--green-bg)'    },
+    { icon: '✅', label: 'ผ่านเกณฑ์ (≥80%)', value: `${passing} คน`, bg: 'var(--green-bg)'    },
+    { icon: '⚠️', label: 'เสี่ยง (60–79%)',  value: `${risk} คน`,    bg: 'var(--orange-bg)'   },
+    { icon: '❌', label: 'ไม่ผ่าน (<60%)',   value: `${failing} คน`, bg: 'var(--red-bg)'      },
+  ].map(c => `
+    <div class="card stat-card">
+      <div class="stat-top"><div class="stat-icon" style="background:${c.bg};">${c.icon}</div></div>
+      <div class="stat-value">${c.value}</div>
+      <div class="stat-label">${c.label}</div>
+    </div>`).join('');
+}
+
+// ── Bar Chart ─────────────────────────────────
+function drawBarChart() {
+  const wrap = document.getElementById('barChart');
+  if (!wrap || !analyticsData.length) return;
+
+  // รวม present+late+absent+leave ทั้งหมด
+  let totalPresent = 0, totalLate = 0, totalAbsent = 0, totalLeave = 0, totalSessions = 0;
+  analyticsData.forEach(s => {
+    totalPresent += s.present;
+    totalLate    += s.late;
+    totalAbsent  += s.absent;
+    totalLeave   += s.leave;
+    totalSessions = Math.max(totalSessions, s.total);
+  });
+
+  if (totalSessions === 0) {
+    wrap.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text-muted);">ยังไม่มีข้อมูล</div>';
+    return;
+  }
+
+  // แบ่งเป็นสัปดาห์ละ ~2 sessions
+  const sessionsPerWeek = 2;
+  const numWeeks = Math.ceil(totalSessions / sessionsPerWeek);
+  const students  = analyticsData.length || 1;
+
+  const weeks = Array.from({ length: numWeeks }, (_, i) => {
+    const sessionStart = i * sessionsPerWeek;
+    const sessionEnd   = Math.min(sessionStart + sessionsPerWeek, totalSessions);
+    const ratio        = (sessionEnd - sessionStart) / totalSessions;
+
+    const p = Math.round((totalPresent * ratio) / students);
+    const l = Math.round((totalLate    * ratio) / students);
+    const t = Math.round((totalSessions * ratio * students) / students);
+    const pct = t > 0 ? Math.round((p + l * 0.5) / (sessionEnd - sessionStart) * 100) : 0;
+
+    return { label: `สัปดาห์ ${i + 1}`, pct: Math.min(pct, 100) };
+  });
+
+  wrap.innerHTML = weeks.map(w => `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <div style="width:90px;font-size:12px;color:var(--text-muted);text-align:right;white-space:nowrap;">${w.label}</div>
+      <div style="flex:1;background:var(--border-light);border-radius:99px;height:10px;">
+        <div class="progress-bar-fill ${w.pct >= 80 ? 'high' : w.pct >= 60 ? 'mid' : 'low'}"
+             style="width:${w.pct}%;height:10px;border-radius:99px;transition:width 0.6s ease;"></div>
+      </div>
+      <div style="width:36px;font-size:12px;font-weight:700;color:var(--text-main);">${w.pct}%</div>
+    </div>`).join('');
 }
