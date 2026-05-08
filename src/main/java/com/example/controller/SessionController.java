@@ -1,14 +1,18 @@
 package com.example.controller;
 
+import com.example.entity.Attendance;
 import com.example.entity.Session;
 import com.example.entity.User;
+import com.example.repository.AttendanceRepository;
 import com.example.repository.SessionRepository;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -30,7 +34,7 @@ public class SessionController {
 
         String subject  = (String) body.getOrDefault("subject", "");
         String room     = (String) body.getOrDefault("room", "");
-        int    duration = parseInt(body.getOrDefault("duration", 5).toString(), 5);
+        int    duration = parseIntObj(body.getOrDefault("duration", 5), 5);
 
         if (subject.isBlank()) {
             return ResponseEntity.badRequest()
@@ -76,45 +80,80 @@ public class SessionController {
         ));
     }
 
+ // SessionController.java — endSession() หลังแก้ (inject JdbcTemplate และ AttendanceRepository)
+    @Autowired private AttendanceRepository attendanceRepository;
+    @Autowired private JdbcTemplate jdbc;
+
     @PostMapping("/end")
-    public ResponseEntity<?> endSession(@RequestBody Map<String, Object> body,
-                                        HttpSession httpSession) {
+    public ResponseEntity<?> endSession(@RequestBody Map<String, Object> body, HttpSession httpSession) {
         User teacher = (User) httpSession.getAttribute("user");
-        if (teacher == null) {
-            return ResponseEntity.status(401)
-                    .body(Map.of("success", false, "message", "Not logged in"));
-        }
+        if (teacher == null)
+            return ResponseEntity.status(401).body(Map.of("success", false, "message", "Not logged in"));
 
         String code = (String) body.get("sessionCode");
-        if (code == null || code.isBlank()) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("success", false, "message", "sessionCode is required"));
-        }
+        if (code == null || code.isBlank())
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "sessionCode is required"));
 
-        sessionRepository.findBySessionCodeAndActiveTrue(code).ifPresent(s -> {
-            s.setActive(false);
-            sessionRepository.save(s);
+        sessionRepository.findBySessionCodeAndActiveTrue(code).ifPresent(sess -> {
+            sess.setActive(false);
+            sessionRepository.save(sess);
+
+            // ── Mark absent สำหรับนักเรียนที่ไม่ได้เช็คชื่อ ──
+            markAbsentForSession(sess);
         });
 
         return ResponseEntity.ok(Map.of("success", true, "message", "Session ปิดแล้ว"));
+    }
+
+    private void markAbsentForSession(Session sess) {
+        try {
+            // ดึงนักเรียนที่ enroll วิชานี้
+            List<Map<String, Object>> enrolled = jdbc.queryForList(
+                "SELECT se.student_id FROM Student_Enrollments se WHERE se.subject_code = ?",
+                sess.getSubject()
+            );
+            for (Map<String, Object> row : enrolled) {
+                String studentId = (String) row.get("student_id");
+                // ถ้ายังไม่มี record → insert "ขาด"
+                boolean exists = attendanceRepository
+                        .existsByStudentIdAndSessionId(studentId, sess.getId());
+                if (!exists) {
+                    Attendance att = new Attendance();
+                    att.setStudentId(studentId);
+                    att.setSessionId(sess.getId());
+                    att.setStatus("ขาด");
+                    att.setCheckinDate(sess.getExpiresAt()); // ใช้เวลาปิด session
+                    att.setFaceVerified(false);
+                    attendanceRepository.save(att);
+                }
+            }
+        } catch (Exception e) {
+            // log แต่ไม่ fail endpoint
+            System.err.println("markAbsentForSession error: " + e.getMessage());
+        }
     }
 
     @GetMapping("/verify/{sessionCode}")
     public ResponseEntity<?> verifySession(@PathVariable String sessionCode) {
         return sessionRepository.findBySessionCodeAndActiveTrue(sessionCode)
                 .map(s -> {
-                    if (LocalDateTime.now().isAfter(s.getExpiresAt())) {
+                    LocalDateTime now = LocalDateTime.now();
+                    // เกิน 1 ชม. → ปฏิเสธ
+                    if (now.isAfter(s.getExpiresAt().plusHours(1))) {
                         s.setActive(false);
                         sessionRepository.save(s);
                         return ResponseEntity.badRequest()
-                                .body(Map.of("success", false, "message", "Session หมดอายุแล้ว"));
+                                .body(Map.of("success", false, "message", "Session หมดอายุแล้ว (เกิน 1 ชั่วโมง)"));
                     }
+                    // อยู่ใน grace period → แจ้งว่าสาย
+                    boolean isLate = now.isAfter(s.getExpiresAt());
                     return ResponseEntity.ok(Map.of(
                             "success",   true,
                             "sessionId", s.getId(),
                             "subject",   s.getSubject(),
                             "room",      s.getRoom(),
-                            "hasGps",    s.getLatitude() != null
+                            "hasGps",    s.getLatitude() != null,
+                            "isLate",    isLate   // ← ส่งกลับให้ frontend แจ้งเตือนนักเรียน
                     ));
                 })
                 .orElse(ResponseEntity.badRequest()
@@ -131,6 +170,15 @@ public class SessionController {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    // ✅ FIX: รองรับกรณี JSON ส่ง duration มาเป็น Double (เช่น 5.0) ซึ่ง parseInt จะ crash
+    private int parseIntObj(Object val, int fallback) {
+        if (val == null) return fallback;
+        try {
+            if (val instanceof Number) return ((Number) val).intValue();
+            return Integer.parseInt(val.toString().replace(".0", ""));
+        } catch (NumberFormatException e) { return fallback; }
     }
 
     private int parseInt(String val, int fallback) {

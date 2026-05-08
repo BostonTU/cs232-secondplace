@@ -1,34 +1,46 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
 		<version>3.3.5</version>
-		<relativePath/> <!-- lookup parent from repository -->
+		<relativePath /> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.example</groupId>
 	<artifactId>cs232-secondplace</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>cs232-secondplace</name>
 	<description>Demo project for Spring Boot</description>
-	<url/>
+	<url />
 	<licenses>
-		<license/>
+		<license />
 	</licenses>
 	<developers>
-		<developer/>
+		<developer />
 	</developers>
 	<scm>
-		<connection/>
-		<developerConnection/>
-		<tag/>
-		<url/>
+		<connection />
+		<developerConnection />
+		<tag />
+		<url />
 	</scm>
 	<properties>
 		<java.version>17</java.version>
 	</properties>
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>software.amazon.awssdk</groupId>
+				<artifactId>bom</artifactId>
+				<version>2.25.0</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -51,22 +63,54 @@
 			<optional>true</optional>
 		</dependency>
 		<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-test</artifactId>
-    <scope>test</scope>
-</dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
 		<!-- ✅ JPA -->
-<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-data-jpa</artifactId>
-</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+		<!-- AWS S3 -->
+		<dependency>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>s3</artifactId>
+		</dependency>
 
+		<!-- AWS Rekognition -->
+		<dependency>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>rekognition</artifactId>
+		</dependency>
 		<!-- ✅ SQL Server -->
-<dependency>
-    <groupId>com.microsoft.sqlserver</groupId>
-    <artifactId>mssql-jdbc</artifactId>
-    <scope>runtime</scope>
-</dependency>
+		<dependency>
+			<groupId>com.microsoft.sqlserver</groupId>
+			<artifactId>mssql-jdbc</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+		<!-- AWS SDK v2 BOM (จัดการ version ให้อัตโนมัติ) -->
+		<dependency>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>bom</artifactId>
+			<version>2.25.60</version>
+			<type>pom</type>
+			<scope>import</scope>
+		</dependency>
+
+		<!-- Rekognition -->
+		<dependency>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>rekognition</artifactId>
+			<version>2.25.60</version>
+		</dependency>
+
+		<!-- S3 -->
+		<dependency>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>s3</artifactId>
+			<version>2.25.60</version>
+		</dependency>
 	</dependencies>
 
 	<build>

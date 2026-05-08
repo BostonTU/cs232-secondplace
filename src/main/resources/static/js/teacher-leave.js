@@ -7,7 +7,19 @@ let allLeaves     = [];
 let pendingAction = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // ✅ FIX: ตรวจสอบ auth และโหลด user info ใน sidebar
+  const user = typeof getUser === 'function' ? getUser() : null;
+  if (!user) { window.location.href = 'login.html'; return; }
+
+  const nameEl = document.getElementById('sidebarName');
+  if (nameEl) nameEl.textContent = user.name?.split(' ')[0] || 'อาจารย์';
+  if (typeof initSidebarAvatar === 'function') initSidebarAvatar();
+
   await loadLeaves();
+  // ✅ FIX: ไม่เรียก loadTeacherNotifications() อีก เพราะ renderSummary() จัดการ leaveNavBadge แล้ว
+  // loadTeacherNotifications() จะ overwrite badge ที่ renderSummary() set ไว้ด้วย API call ซ้ำ
+  // เรียกแค่เพื่ออัปเดต bell notifBadge และ dropdown list เท่านั้น
+  _updateBellNotif();
 });
 
 // ── โหลดใบลาจาก API ───────────────────────────
@@ -21,10 +33,38 @@ async function loadLeaves() {
     allLeaves = json.data || [];
     renderSummary();
     renderLeaveList(currentFilter);
+    // ✅ อัปเดต bell dropdown จากข้อมูลที่โหลดมาแล้ว โดยไม่ยิง API ซ้ำ
+    _updateBellNotif();
   } catch (err) {
     console.error(err);
     showToast('โหลดข้อมูลไม่สำเร็จ', 'error');
   }
+}
+
+// อัปเดตแค่ bell icon + notif dropdown จาก allLeaves ที่มีอยู่แล้ว
+// ไม่แตะ leaveNavBadge (renderSummary() จัดการแล้ว)
+function _updateBellNotif() {
+  const pending = allLeaves.filter(l => l.status === 'pending');
+  const readIds = JSON.parse(localStorage.getItem('attendx_read_notifs') || '[]');
+  const notifs  = pending.slice(0, 5).map(l => ({
+    icon:   '📋',
+    title:  `คำร้องลาใหม่: ${l.studentName || l.studentId}`,
+    time:   typeof formatTimeAgo === 'function' ? formatTimeAgo(l.submittedAt) : '',
+    unread: !readIds.includes(String(l.id)),
+    id:     l.id,
+    url:    'teacher-leave.html'
+  }));
+
+  if (typeof renderNotifList === 'function') {
+    renderNotifList(
+      notifs.length ? notifs : [{ icon: '✅', title: 'ไม่มีการแจ้งเตือนใหม่', time: '', unread: false, url: '#' }],
+      'notifList'
+    );
+  }
+
+  const unread = notifs.filter(n => n.unread).length;
+  const notifBadge = document.getElementById('notifBadge');
+  if (notifBadge) { notifBadge.textContent = unread; notifBadge.style.display = unread ? 'flex' : 'none'; }
 }
 
 // ── Summary Row ───────────────────────────────
@@ -46,7 +86,10 @@ function renderSummary() {
   }
 
   const badge = document.getElementById('leaveNavBadge');
-  if (badge) badge.textContent = counts.pending;
+  if (badge) {
+    badge.textContent   = counts.pending;
+    badge.style.display = counts.pending > 0 ? 'inline-flex' : 'none';
+  }
 }
 
 // ── Filter Tabs ───────────────────────────────
@@ -60,7 +103,8 @@ function filterLeave(filter) {
 }
 
 // ── Render Leave List ─────────────────────────
-const TYPE_LABELS = { sick:'ลาป่วย', personal:'ลากิจ', other:'อื่นๆ' };
+// TYPE_LABELS ตรงกับค่าที่ DB เก็บจริง (ภาษาไทย)
+const TYPE_LABELS = { 'ป่วย':'ลาป่วย', 'กิจ':'ลากิจ', 'อื่นๆ':'อื่นๆ', sick:'ลาป่วย', personal:'ลากิจ', other:'อื่นๆ' };
 
 function renderLeaveList(filter) {
   const list = document.getElementById('leaveList');
@@ -120,8 +164,8 @@ function openDetailModal(id) {
         <div style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">📎 เอกสารแนบ</div>
         <div style="display:flex;align-items:center;gap:10px;">
           <span style="font-size:24px;">📄</span>
-          <div style="font-size:13px;font-weight:600;">${leave.documentUrl}</div>
-          <a href="/uploads/${leave.documentUrl}" target="_blank" class="btn btn-secondary btn-sm" style="margin-left:auto;">⬇ เปิดไฟล์</a>
+          <div style="font-size:13px;font-weight:600;">${leave.documentUrl.split('?')[0].split('/').pop().split('_').slice(1).join('_') || 'เอกสาร'}</div>
+		  <a href="${leave.documentUrl}" target="_blank" class="btn btn-secondary btn-sm" style="margin-left:auto;">⬇ เปิดไฟล์</a>
         </div>
       </div>`;
   } else {
@@ -139,17 +183,87 @@ function openDetailModal(id) {
 function closeDetailModal() { document.getElementById('detailModal').classList.add('hidden'); }
 
 // ── Confirm Modal ─────────────────────────────
-function promptAction(id, action) {
-  pendingAction = { id, action };
-  const leave = allLeaves.find(l => l.id === id);
+// หลังแก้ — เมื่ออนุมัติ ให้โหลด sessions มาให้เลือกก่อน
 
-  document.getElementById('modalIcon').textContent      = action==='approved'?'✅':'❌';
-  document.getElementById('modalTitle').textContent     = action==='approved'?'ยืนยันการอนุมัติ':'ยืนยันการปฏิเสธ';
-  document.getElementById('modalBody').textContent      = `คุณต้องการ${action==='approved'?'อนุมัติ':'ปฏิเสธ'}ใบลาของ ${leave?.studentName||leave?.studentId}?`;
-  document.getElementById('modalConfirmBtn').className  = `btn ${action==='approved'?'btn-success':'btn-danger'}`;
-  document.getElementById('modalConfirmBtn').textContent = action==='approved'?'อนุมัติ':'ปฏิเสธ';
+async function promptAction(id, action) {
+    pendingAction = { id, action, sessionId: null };
+    const leave = allLeaves.find(l => l.id === id);
 
-  document.getElementById('confirmModal').classList.remove('hidden');
+    document.getElementById('modalIcon').textContent      = action === 'approved' ? '✅' : '❌';
+    document.getElementById('modalTitle').textContent     = action === 'approved' ? 'ยืนยันการอนุมัติ' : 'ยืนยันการปฏิเสธ';
+    document.getElementById('modalBody').textContent      = `คุณต้องการ${action === 'approved' ? 'อนุมัติ' : 'ปฏิเสธ'}ใบลาของ ${leave?.studentName || leave?.studentId}?`;
+    document.getElementById('modalConfirmBtn').className  = `btn ${action === 'approved' ? 'btn-success' : 'btn-danger'}`;
+    document.getElementById('modalConfirmBtn').textContent = action === 'approved' ? 'อนุมัติ' : 'ปฏิเสธ';
+
+    // ── ถ้าอนุมัติ → โหลด sessions ของวิชา+วันที่นั้นให้เลือก ──
+    const sessionPickWrap = document.getElementById('sessionPickWrap');
+    if (sessionPickWrap) sessionPickWrap.innerHTML = '';
+
+    if (action === 'approved') {
+        try {
+            const res  = await fetch(`/api/teacher/leave/${id}/sessions`, { credentials: 'include' });
+            const json = await res.json();
+            const sessions = json.data || [];
+
+            if (sessions.length > 0 && sessionPickWrap) {
+                const options = sessions.map(s =>
+                    `<option value="${s.sessionId}">${s.sessionCode} — ${s.startedAt ? new Date(s.startedAt).toLocaleString('th-TH') : 'ไม่ระบุเวลา'}</option>`
+                ).join('');
+                sessionPickWrap.innerHTML = `
+                    <div style="margin-top:12px;">
+                        <label style="font-size:13px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:6px;">
+                            📅 เลือก Session ที่ต้องการอัปเดต:
+                        </label>
+                        <select id="sessionPickSelect"
+                            style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-md);font-family:Prompt,sans-serif;font-size:13px;"
+                            onchange="pendingAction.sessionId = this.value ? Number(this.value) : null">
+                            <option value="">-- ทุก Session ในวันนั้น --</option>
+                            ${options}
+                        </select>
+                    </div>`;
+            } else if (sessionPickWrap) {
+                sessionPickWrap.innerHTML = `
+                    <div style="margin-top:10px;font-size:13px;color:var(--text-muted);">
+                        ⚠️ ไม่พบ session ของวิชานี้ในวันที่ลา — ระบบจะบันทึก "ลา" ไว้รอ
+                    </div>`;
+            }
+        } catch (e) {
+            console.warn('โหลด sessions ไม่สำเร็จ', e);
+        }
+    }
+
+    document.getElementById('confirmModal').classList.remove('hidden');
+}
+
+async function confirmAction() {
+    if (!pendingAction) return;
+    const { id, action, sessionId } = pendingAction;
+    closeModal();
+
+    try {
+        const res  = await fetch(`/api/leave/${id}/status`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ status: action, sessionId: sessionId || null })
+        });
+        const json = await res.json();
+
+        if (json.success) {
+            const leave = allLeaves.find(l => l.id === id);
+            if (leave) leave.status = action;
+            renderSummary();
+            renderLeaveList(currentFilter);
+            _updateBellNotif();
+            showToast(action === 'approved' ? 'อนุมัติใบลาแล้ว — สถานะเด็กอัปเดตแล้ว' : 'ปฏิเสธใบลาแล้ว',
+                      action === 'approved' ? 'success' : 'error');
+        } else {
+            showToast(json.message || 'เกิดข้อผิดพลาด', 'error');
+        }
+    } catch (err) {
+        showToast('เกิดข้อผิดพลาด', 'error');
+        console.error(err);
+    }
 }
 
 function closeModal() {
@@ -177,6 +291,7 @@ async function confirmAction() {
       if (leave) leave.status = action;
       renderSummary();
       renderLeaveList(currentFilter);
+      _updateBellNotif();
       showToast(action==='approved'?`อนุมัติใบลาแล้ว`:`ปฏิเสธใบลาแล้ว`, action==='approved'?'success':'error');
     } else {
       showToast(json.message||'เกิดข้อผิดพลาด', 'error');

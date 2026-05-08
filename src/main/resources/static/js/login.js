@@ -72,8 +72,29 @@ async function handleLogin(event) {
     const data = await response.json();
 
     if (response.ok && data.success) {
-      // ✅ FIX: normalize role เป็น lowercase ก่อนเก็บและเปรียบเทียบ
+      // normalize role เป็น lowercase ก่อนเก็บและเปรียบเทียบ
       const normalizedRole = (data.role || '').toLowerCase();
+
+      // ✅ FIX: ตรวจสอบว่า role จริงตรงกับหัวข้อที่เลือก login
+      const isStudent = normalizedRole === 'student';
+      const isStaff   = normalizedRole === 'staff';
+      if (currentRole === 'student' && !isStudent) {
+        btn.disabled = false;
+        btn.classList.remove('loading');
+        spinner.style.display = 'none';
+        errDiv.style.display  = 'flex';
+        document.getElementById('loginErrorText').textContent = 'บัญชีนี้ไม่ใช่นักศึกษา กรุณาเลือกเข้าสู่ระบบอาจารย์';
+        return;
+      }
+      if (currentRole === 'teacher' && !isStaff) {
+        btn.disabled = false;
+        btn.classList.remove('loading');
+        spinner.style.display = 'none';
+        errDiv.style.display  = 'flex';
+        document.getElementById('loginErrorText').textContent = 'บัญชีนี้ไม่ใช่อาจารย์ กรุณาเลือกเข้าสู่ระบบนักศึกษา';
+        return;
+      }
+
       const session = {
         id: data.username,
         name: data.fullName,
@@ -86,8 +107,7 @@ async function handleLogin(event) {
       showToast(`ยินดีต้อนรับ, ${data.fullName}`, 'success');
       await new Promise(r => setTimeout(r, 800));
 
-      // ✅ FIX: เปรียบ role ที่ normalize แล้ว + รองรับ "staff" ด้วย
-      if (normalizedRole === 'student') window.location.href = 'student-checkin.html';
+      if (isStudent) window.location.href = 'student-checkin.html';
       else window.location.href = 'teacher-dashboard.html';
 
     } else {
@@ -110,14 +130,30 @@ async function handleLogin(event) {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  const saved = typeof getUser === 'function' ? getUser() : null;
-  if (saved) {
-    const role = (saved.role || '').toLowerCase();
-    if (role === 'student') window.location.href = 'student-checkin.html';
-    else window.location.href = 'teacher-dashboard.html';
-  }
+document.addEventListener('DOMContentLoaded', async () => {
   document.title = 'AttendX — เข้าสู่ระบบ';
+
+  const saved = typeof getUser === 'function' ? getUser() : null;
+  if (!saved) return; // ไม่มีข้อมูลใน localStorage → แสดงหน้า login ปกติ
+
+  // ✅ ตรวจสอบกับ server ก่อน — ถ้า session หมดอายุให้ล้าง localStorage แทน redirect
+  try {
+    const res = await fetch('/api/profile', { credentials: 'include' });
+    if (res.ok) {
+      // session ยังอยู่ → redirect ได้เลย
+      const role = (saved.role || '').toLowerCase();
+      if (role === 'student') window.location.href = 'student-checkin.html';
+      else window.location.href = 'teacher-dashboard.html';
+    } else {
+      // session หมดอายุ → ล้าง localStorage แล้วแสดงหน้า login
+      localStorage.removeItem('attendx_user');
+      sessionStorage.removeItem('attendx_user');
+    }
+  } catch (e) {
+    // network error → ล้างเพื่อความปลอดภัย
+    localStorage.removeItem('attendx_user');
+    sessionStorage.removeItem('attendx_user');
+  }
 });
 
 // ── Mock Auth (legacy, ไม่ใช้แล้วแต่เก็บไว้) ─────────────────────────────

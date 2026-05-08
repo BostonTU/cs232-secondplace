@@ -26,12 +26,25 @@ services:
     restart: always
     ports:
       - "8080:8080"
+
     environment:
-      SPRING_DATASOURCE_URL: "jdbc:sqlserver://sqlserver:1433;databaseName=AttendanceDB;encrypt=true;trustServerCertificate=true"
-      SPRING_DATASOURCE_USERNAME: "sa"
-      SPRING_DATASOURCE_PASSWORD: "YourStrong@Passw0rd"
+      - SPRING_DATASOURCE_URL=jdbc:sqlserver://sqlserver:1433;databaseName=AttendanceDB;encrypt=true;trustServerCertificate=true
+      - SPRING_DATASOURCE_USERNAME=sa
+      - SPRING_DATASOURCE_PASSWORD=YourStrong@Passw0rd
+      - TU_API_KEY=TU79749c8b40ec7a19af4ac0512d6eb8a8ff717bf737acfa2c3fdcabcd88f1745163fda22699369b6b332ec47c01bcc17
+      - AWS_REGION=us-east-1
+      - AWS_S3_BUCKET=a_bucket
+      - AWS_REKO_COLLECTION=attendance-faces
+      - AWS_ACCESS_KEY_ID=your_key
+      - AWS_SECRET_ACCESS_KEY=your_secret
+      - SPRING_DATASOURCE_URL=jdbc:sqlserver://xxxxxx.us-east-1.rds.amazonaws.com:1433;databaseName=AttendanceDB;encrypt=true;trustServerCertificate=true
+
+    volumes:
+      - ./uploads:/app/uploads
+
     depends_on:
       - sqlserver
+
     networks:
       - spring-network
 

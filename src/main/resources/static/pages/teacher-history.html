@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AttendX — ประวัติการเช็คชื่อ</title>
+  <link rel="stylesheet" href="../css/global.css" />
+  <link rel="stylesheet" href="../css/dashboard.css" />
+  <style>
+    .session-card {
+      background: var(--card-bg, #fff);
+      border: 1.5px solid var(--border, #E5E7EB);
+      border-radius: 14px;
+      padding: 18px 22px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      transition: box-shadow 0.18s, border-color 0.18s;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .session-card:hover { box-shadow: 0 4px 18px rgba(0,0,0,0.10); border-color: var(--yellow, #F59E0B); }
+    .session-card .session-icon { font-size: 28px; flex-shrink: 0; }
+    .session-card .session-info { flex: 1; }
+    .session-card .session-title { font-size: 15px; font-weight: 700; }
+    .session-card .session-sub   { font-size: 12px; color: var(--text-muted, #9AA3B2); margin-top: 2px; }
+    .session-card .session-chips { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+    .chip { padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .chip-green  { background: #D1FAE5; color: #065F46; }
+    .chip-red    { background: #FEE2E2; color: #991B1B; }
+    .chip-yellow { background: #FEF3C7; color: #92400E; }
+    .chip-blue   { background: #DBEAFE; color: #1E40AF; }
+    .chip-gray   { background: #F3F4F6; color: #374151; }
+    /* Mini stat boxes inline */
+    .session-stat-row { display: flex; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
+    .session-stat-box { display: flex; flex-direction: column; align-items: center; background: #F9FAFB; border-radius: 10px; padding: 6px 14px; min-width: 52px; }
+    .session-stat-box .sval { font-size: 20px; font-weight: 800; line-height: 1.1; }
+    .session-stat-box .slbl { font-size: 10px; color: #9AA3B2; margin-top: 2px; font-weight: 600; }
+    .badge-active   { background: #D1FAE5; color: #065F46; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+    .badge-inactive { background: #F3F4F6; color: #6B7280; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+
+    /* Modal */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45); z-index: 1000;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: #fff; border-radius: 18px; width: 92%; max-width: 680px;
+      max-height: 85vh; overflow: hidden; display: flex; flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    }
+    .modal-header {
+      padding: 20px 24px; border-bottom: 1.5px solid #E5E7EB;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .modal-header h3 { font-size: 16px; font-weight: 700; margin: 0; }
+    .modal-close { background: none; border: none; font-size: 22px; cursor: pointer; color: #9AA3B2; }
+    .modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
+    .modal-stats { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+    .modal-stat { flex: 1; min-width: 80px; background: #F9FAFB; border-radius: 10px; padding: 10px 14px; text-align: center; }
+    .modal-stat .val { font-size: 22px; font-weight: 800; }
+    .modal-stat .lbl { font-size: 11px; color: #9AA3B2; margin-top: 2px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: #F9FAFB; padding: 10px 12px; text-align: left; font-weight: 700; color: #374151; border-bottom: 2px solid #E5E7EB; }
+    td { padding: 10px 12px; border-bottom: 1px solid #F3F4F6; }
+    tr:last-child td { border-bottom: none; }
+    .status-pill { padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-block; }
+    .status-มา   { background: #D1FAE5; color: #065F46; }
+    .status-สาย  { background: #FEF3C7; color: #92400E; }
+    .status-ขาด  { background: #FEE2E2; color: #991B1B; }
+    .status-ลา   { background: #DBEAFE; color: #1E40AF; }
+
+    .empty-state { text-align: center; padding: 48px 20px; color: #9AA3B2; font-size: 14px; }
+    .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+    .loading { text-align: center; padding: 40px; color: #9AA3B2; font-size: 14px; }
+  </style>
+</head>
+<body>
+
+  <div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-text">Attend<span>X</span></div>
+      </div>
+      <div class="sidebar-section-label">เมนูอาจารย์</div>
+      <nav class="sidebar-nav">
+        <a href="teacher-dashboard.html"><span class="nav-icon">🏠</span> Dashboard</a>
+        <a href="teacher-qr.html"><span class="nav-icon">📷</span> QR Generator</a>
+        <a href="teacher-leave.html">
+          <span class="nav-icon">📋</span> จัดการใบลา
+          <span class="nav-badge" id="leaveNavBadge" style="display:none;">0</span>
+        </a>
+        <a href="teacher-analytics.html"><span class="nav-icon">📊</span> Analytics</a>
+        <a href="teacher-history.html" class="active"><span class="nav-icon">🕐</span> ประวัติการเช็คชื่อ</a>
+      </nav>
+      <div class="sidebar-user">
+        <div class="avatar" id="sidebarAvatar" style="background:var(--dark-navy);color:var(--yellow);">อ</div>
+        <div class="user-info">
+          <div class="user-name" id="sidebarName">อาจารย์</div>
+          <div class="user-role">อาจารย์ประจำหลักสูตร CS</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="topbar-icon-btn" onclick="toggleSidebar()">☰</button>
+        <span class="page-title">ประวัติการเช็คชื่อ</span>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-role-chip" style="background:var(--dark-navy);">อาจารย์</div>
+        <div style="position:relative;">
+          <div class="topbar-icon-btn" onclick="toggleNotif()" id="notifBtn">
+            🔔 <span class="dot-badge" id="notifBadge" style="display:none;">0</span>
+          </div>
+          <div class="notif-dropdown" id="notifDropdown" style="display:none;">
+            <div class="notif-header">
+              <span>การแจ้งเตือน</span>
+              <button onclick="markAllRead()" style="font-size:12px;color:var(--yellow);font-weight:600;">อ่านทั้งหมด</button>
+            </div>
+            <div class="notif-list" id="notifList"></div>
+          </div>
+        </div>
+        <div class="topbar-icon-btn" onclick="logout()">🚪</div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <div class="page-header">
+        <h1>🕐 ประวัติการเช็คชื่อ</h1>
+        <p class="subtitle" id="historySubtitle">รายการ session ทั้งหมด</p>
+      </div>
+
+      <!-- Filter bar -->
+      <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center;">
+        <input
+          type="text"
+          id="searchInput"
+          placeholder="🔍 ค้นหาวิชา / ห้อง..."
+          oninput="filterSessions(this.value)"
+          style="padding:9px 14px;border:1.5px solid var(--border);border-radius:var(--radius-md);font-family:Prompt,sans-serif;font-size:13px;outline:none;width:240px;"
+        />
+        <select id="filterStatus" onchange="filterSessions(document.getElementById('searchInput').value)"
+          style="padding:9px 14px;border:1.5px solid var(--border);border-radius:var(--radius-md);font-family:Prompt,sans-serif;font-size:13px;outline:none;">
+          <option value="">ทุก session</option>
+          <option value="active">กำลังเปิดอยู่</option>
+          <option value="inactive">ปิดแล้ว</option>
+        </select>
+      </div>
+
+      <!-- Session List -->
+      <div id="sessionList">
+        <div class="loading">⏳ กำลังโหลด...</div>
+      </div>
+
+    </main>
+  </div>
+
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Detail Modal -->
+  <div class="modal-overlay" id="detailModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalTitle">รายละเอียด session</h3>
+          <div style="font-size:12px;color:#9AA3B2;margin-top:2px;" id="modalSub"></div>
+        </div>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-stats" id="modalStats"></div>
+        <div id="modalTableWrap"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/utils.js"></script>
+  <script>
+    let allSessions = [];
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = typeof getUser === 'function' ? getUser() : null;
+      if (!user) { window.location.href = 'login.html'; return; }
+
+      const nameEl = document.getElementById('sidebarName');
+      if (nameEl) nameEl.textContent = user.name?.split(' ')[0] || 'อาจารย์';
+      if (typeof initSidebarAvatar === 'function') initSidebarAvatar();
+      if (typeof loadTeacherNotifications === 'function') loadTeacherNotifications();
+
+      await loadHistory();
+    });
+
+    async function loadHistory() {
+      try {
+        const res  = await fetch('/teacher/attendance/history', { credentials: 'include' });
+        if (res.status === 401) { window.location.href = 'login.html'; return; }
+        const json = await res.json();
+
+        if (!json.success) { renderEmpty(); return; }
+
+        allSessions = json.data || [];
+        document.getElementById('historySubtitle').textContent =
+          `ทั้งหมด ${allSessions.length} session`;
+
+        renderSessions(allSessions);
+      } catch (e) {
+        console.error(e);
+        document.getElementById('sessionList').innerHTML =
+          '<div class="empty-state"><div class="icon">⚠️</div>โหลดข้อมูลไม่สำเร็จ</div>';
+      }
+    }
+
+    function filterSessions(keyword) {
+      const kw     = keyword.toLowerCase();
+      const status = document.getElementById('filterStatus').value;
+
+      const filtered = allSessions.filter(s => {
+        const matchText = !kw ||
+          (s.subject || '').toLowerCase().includes(kw) ||
+          (s.room    || '').toLowerCase().includes(kw);
+        const matchStatus =
+          !status ||
+          (status === 'active'   &&  s.active) ||
+          (status === 'inactive' && !s.active);
+        return matchText && matchStatus;
+      });
+
+      renderSessions(filtered);
+    }
+
+    function renderSessions(list) {
+      const container = document.getElementById('sessionList');
+
+      if (!list.length) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">📭</div>
+            ไม่พบ session ที่ตรงกัน
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = list.map(s => {
+        const attendRate = s.total > 0 ? Math.round((s.present + (s.late||0)*0.5) / s.total * 100) : 0;
+        const rateColor = attendRate >= 80 ? '#22C55E' : attendRate >= 60 ? '#F59E0B' : '#EF4444';
+        return `
+        <div class="session-card" onclick="openDetail(${s.sessionId})">
+          <div class="session-icon">📋</div>
+          <div class="session-info" style="flex:1;">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <div class="session-title">${s.subject || 'ไม่ระบุวิชา'} &nbsp;•&nbsp; ห้อง ${s.room || '—'}</div>
+              ${s.active
+                ? '<span class="badge-active">🟢 เปิดอยู่</span>'
+                : '<span class="badge-inactive">⚫ ปิดแล้ว</span>'}
+            </div>
+            <div class="session-sub">🕐 ${s.startedAt || '—'}</div>
+            <div class="session-stat-row">
+              <div class="session-stat-box">
+                <div class="sval" style="color:#22C55E;">${s.present ?? 0}</div>
+                <div class="slbl">มา</div>
+              </div>
+              <div class="session-stat-box">
+                <div class="sval" style="color:#F59E0B;">${s.late ?? 0}</div>
+                <div class="slbl">สาย</div>
+              </div>
+              <div class="session-stat-box">
+                <div class="sval" style="color:#EF4444;">${s.absent ?? 0}</div>
+                <div class="slbl">ขาด</div>
+              </div>
+              <div class="session-stat-box">
+                <div class="sval" style="color:#3B82F6;">${s.leave ?? 0}</div>
+                <div class="slbl">ลา</div>
+              </div>
+              <div class="session-stat-box" style="background:#EEF2FF;">
+                <div class="sval" style="color:#4F46E5;">${s.total ?? 0}</div>
+                <div class="slbl">รวม</div>
+              </div>
+              <div class="session-stat-box" style="background:#F0FDF4;">
+                <div class="sval" style="color:${rateColor};">${attendRate}%</div>
+                <div class="slbl">อัตรา</div>
+              </div>
+            </div>
+          </div>
+          <div style="align-self:flex-start;padding-left:4px;color:#9AA3B2;font-size:18px;">›</div>
+        </div>
+      `}).join('');
+    }
+
+    function renderEmpty() {
+      document.getElementById('sessionList').innerHTML = `
+        <div class="empty-state">
+          <div class="icon">📭</div>
+          ยังไม่มีประวัติการเช็คชื่อ
+        </div>`;
+    }
+
+    async function openDetail(sessionId) {
+      document.getElementById('detailModal').classList.add('open');
+      document.getElementById('modalTitle').textContent = 'กำลังโหลด...';
+      document.getElementById('modalSub').textContent   = '';
+      document.getElementById('modalStats').innerHTML   = '<div style="color:#9AA3B2;font-size:13px;">⏳ กำลังโหลด...</div>';
+      document.getElementById('modalTableWrap').innerHTML = '';
+
+      try {
+        const res  = await fetch(`/teacher/attendance/history/${sessionId}`, { credentials: 'include' });
+        const json = await res.json();
+
+        if (!json.success) {
+          document.getElementById('modalStats').innerHTML = '<div style="color:red;">โหลดไม่สำเร็จ</div>';
+          return;
+        }
+
+        document.getElementById('modalTitle').textContent =
+          `${json.subject || 'ไม่ระบุวิชา'} — ห้อง ${json.room || '—'}`;
+        document.getElementById('modalSub').textContent = `🕐 ${json.startedAt || '—'}`;
+
+        const data    = json.data || [];
+        const present = data.filter(d => d.status === 'มา').length;
+        const late    = data.filter(d => d.status === 'สาย').length;
+        const absent  = data.filter(d => d.status === 'ขาด').length;
+        const leave   = data.filter(d => d.status === 'ลา').length;
+
+        document.getElementById('modalStats').innerHTML = `
+          <div class="modal-stat"><div class="val" style="color:#22C55E;">${present}</div><div class="lbl">มาเรียน</div></div>
+          <div class="modal-stat"><div class="val" style="color:#F59E0B;">${late}</div><div class="lbl">มาสาย</div></div>
+          <div class="modal-stat"><div class="val" style="color:#EF4444;">${absent}</div><div class="lbl">ขาด</div></div>
+          <div class="modal-stat"><div class="val" style="color:#3B82F6;">${leave}</div><div class="lbl">ลา</div></div>
+          <div class="modal-stat"><div class="val">${data.length}</div><div class="lbl">รวม</div></div>
+        `;
+
+        if (!data.length) {
+          document.getElementById('modalTableWrap').innerHTML =
+            '<div style="text-align:center;padding:24px;color:#9AA3B2;font-size:13px;">ไม่มีข้อมูลการเช็คชื่อ</div>';
+          return;
+        }
+
+        document.getElementById('modalTableWrap').innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>ชื่อ-นามสกุล</th>
+                <th>รหัสนักศึกษา</th>
+                <th>เวลาเช็คชื่อ</th>
+                <th>สถานะ</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.map((d, i) => `
+                <tr>
+                  <td>${i + 1}</td>
+                  <td>${d.fullName || d.studentId}</td>
+                  <td style="color:#9AA3B2;">${d.studentId}</td>
+                  <td>${d.checkinTime}</td>
+                  <td><span class="status-pill status-${d.status}">${d.status}</span></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } catch (e) {
+        console.error(e);
+        document.getElementById('modalStats').innerHTML = '<div style="color:red;">เกิดข้อผิดพลาด</div>';
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('detailModal').classList.remove('open');
+    }
+
+    // ปิด modal เมื่อคลิกพื้นหลัง
+    document.getElementById('detailModal').addEventListener('click', function(e) {
+      if (e.target === this) closeModal();
+    });
+  </script>
+</body>
+</html>

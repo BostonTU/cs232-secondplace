@@ -20,16 +20,17 @@ public class Student {
     @Column(name = "profile_image_url", length = 255)
     private String profileImageUrl;
 
+    @Column(name = "face_photo_key", length = 255)
+    private String facePhotoKey;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
-    // 🔥 FIX: set ค่าอัตโนมัติก่อน insert
     @PrePersist
     public void prePersist() {
         this.createdAt = LocalDateTime.now();
     }
 
-    // ===== getters/setters =====
     public String getStudentId() { return studentId; }
     public void setStudentId(String studentId) { this.studentId = studentId; }
 
@@ -41,6 +42,9 @@ public class Student {
 
     public String getProfileImageUrl() { return profileImageUrl; }
     public void setProfileImageUrl(String profileImageUrl) { this.profileImageUrl = profileImageUrl; }
+
+    public String getFacePhotoKey() { return facePhotoKey; }
+    public void setFacePhotoKey(String facePhotoKey) { this.facePhotoKey = facePhotoKey; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

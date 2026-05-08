@@ -9,7 +9,17 @@ let qrInstance         = null;
 let currentSessionCode = null;
 
 document.addEventListener('DOMContentLoaded', () => {
+  // ✅ FIX: ตรวจสอบ auth และโหลด user info ใน sidebar
+  const user = typeof getUser === 'function' ? getUser() : null;
+  if (!user) { window.location.href = 'login.html'; return; }
+
+  const nameEl = document.getElementById('sidebarName');
+  if (nameEl) nameEl.textContent = user.name?.split(' ')[0] || 'อาจารย์';
+  if (typeof initSidebarAvatar === 'function') initSidebarAvatar();
+
   loadTeachingSubjects();
+  restoreSession();
+  loadTeacherNotifications();
 });
 
 // ── โหลดวิชาที่อาจารย์สอนจาก DB ──────────────
@@ -130,12 +140,22 @@ async function startSession() {
     timerInterval = setInterval(async () => {
       secondsLeft--;
       updateTimer();
+	  if (secondsLeft % 5 === 0) await pollCheckins();
       if (secondsLeft <= 0) await endSession();
     }, 1000);
 
     const gpsMsg = data.hasGps ? ' (GPS เปิด)' : ' (ไม่มี GPS)';
     showToast(`สร้าง Session สำเร็จ: ${data.sessionCode}${gpsMsg}`, 'success');
 
+	localStorage.setItem('attendx_qr_session', JSON.stringify({
+	  sessionCode: data.sessionCode,
+	  sessionUrl,
+	  subject: data.subject,
+	  room: data.room,
+	  startTime: now.toISOString(),
+	  expiresAt: new Date(now.getTime() + duration * 60000).toISOString()
+	}));
+	
   } catch (err) {
     showToast('เกิดข้อผิดพลาด กรุณาลองใหม่', 'error');
     console.error(err);
@@ -157,6 +177,8 @@ function updateTimer() {
 async function endSession() {
   clearInterval(timerInterval);
   sessionActive = false;
+  localStorage.removeItem('attendx_qr_session');
+  localStorage.setItem('attendx_dashboard_refresh', '1');
 
   if (currentSessionCode) {
     try {
@@ -195,4 +217,78 @@ function copySessionLink() {
     document.body.removeChild(el);
     showToast('คัดลอก Link แล้ว', 'success');
   }
+}
+
+async function pollCheckins() {
+  if (!currentSessionCode) return;
+  try {
+    const res  = await fetch('/teacher/attendance/current', { credentials: 'include' });
+    const json = await res.json();
+    if (!json.success && json.message === 'No active session') return;
+
+    const students = json.data || [];
+    const checked  = students.filter(s => s.status === 'มา' || s.status === 'สาย');
+
+    document.getElementById('infoCheckins').textContent = `${checked.length} คน`;
+
+    const list = document.getElementById('checkinMiniList');
+    if (list) {
+      list.innerHTML = checked.length
+        ? checked.map(s => `
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-light);font-size:13px;">
+              <span>${s.fullName || s.studentId}</span>
+              <span style="color:var(--text-muted);">${s.status}</span>
+            </div>`).join('')
+        : '<div style="font-size:13px;color:var(--text-muted);padding:8px 0;">ยังไม่มีนักศึกษาเช็คชื่อ</div>';
+    }
+  } catch(e) { console.error('pollCheckins:', e); }
+}
+
+function restoreSession() {
+  const saved = localStorage.getItem('attendx_qr_session');
+  if (!saved) return;
+
+  const s = JSON.parse(saved);
+  const remaining = Math.floor((new Date(s.expiresAt) - Date.now()) / 1000);
+  if (remaining <= 0) {
+    localStorage.removeItem('attendx_qr_session');
+    return;
+  }
+
+  // restore state
+  currentSessionCode = s.sessionCode;
+  secondsLeft        = remaining;
+  sessionActive      = true;
+
+  document.getElementById('startSessionCard').style.display  = 'none';
+  document.getElementById('activeSessionWrap').style.display = 'block';
+
+  document.getElementById('qrCourseLabel').textContent = s.subject;
+  document.getElementById('qrRoomLabel').textContent   = `ห้อง ${s.room}`;
+  document.getElementById('infoSessionId').textContent = s.sessionCode;
+  document.getElementById('infoSubject').textContent   = s.subject;
+  document.getElementById('infoRoom').textContent      = s.room;
+  document.getElementById('infoStart').textContent     = new Date(s.startTime).toLocaleTimeString('th-TH');
+  document.getElementById('copyLinkBtn').dataset.url   = s.sessionUrl;
+
+  const qrBox = document.getElementById('qrCodeBox');
+  qrBox.innerHTML = '';
+  try {
+    qrInstance = new QRCode(qrBox, {
+      text: s.sessionUrl,
+      width: 210, height: 210,
+      colorDark: '#1A2035', colorLight: '#FFFFFF',
+      correctLevel: QRCode.CorrectLevel.H,
+    });
+  } catch(e) {
+    qrBox.innerHTML = `<div style="padding:20px;text-align:center;font-size:13px;">${s.sessionCode}</div>`;
+  }
+
+  updateTimer();
+  timerInterval = setInterval(async () => {
+    secondsLeft--;
+    updateTimer();
+    if (secondsLeft % 5 === 0) await pollCheckins();
+    if (secondsLeft <= 0) await endSession();
+  }, 1000);
 }

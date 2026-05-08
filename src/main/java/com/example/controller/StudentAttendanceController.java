@@ -36,7 +36,6 @@ public class StudentAttendanceController {
                     .body(Map.of("success", false, "message", "กรุณา Login ก่อนเช็คชื่อ"));
         }
 
-        // ✅ FIX: เช็ค role แบบ case-insensitive ("Student" หรือ "student" ผ่านได้)
         String role = student.getRole() == null ? "" : student.getRole().toLowerCase();
         if (!"student".equals(role)) {
             return ResponseEntity.status(403)
@@ -64,13 +63,17 @@ public class StudentAttendanceController {
                     .body(Map.of("success", false, "message", "Session ปิดแล้ว"));
         }
 
-        if (LocalDateTime.now().isAfter(sess.getExpiresAt())) {
+     // หลังแก้ — รองรับ grace period 1 ชม. เหมือนฝั่ง AttendanceController
+        LocalDateTime now = LocalDateTime.now();
+
+        // เกิน expiresAt + 1 ชม. → ปิดเลย
+        if (now.isAfter(sess.getExpiresAt().plusHours(1))) {
             sess.setActive(false);
             sessionRepo.save(sess);
             return ResponseEntity.badRequest()
-                    .body(Map.of("success", false, "message", "Session หมดเวลาแล้ว"));
+                    .body(Map.of("success", false, "message", "Session หมดเวลาแล้ว (เกิน 1 ชั่วโมง)"));
         }
-
+        // อยู่ใน grace period (expiresAt ถึง expiresAt+1hr) → เช็คได้ แต่ service จะ mark สาย
         String result = service.checkIn(studentId, req.getSessionId(), ip,
                 req.getLatitude(), req.getLongitude());
 
@@ -105,18 +108,21 @@ public class StudentAttendanceController {
         String studentId = student.getUsername();
         List<Attendance> records = attendanceRepo.findByStudentIdOrderByCheckinDateDesc(studentId);
 
+        // ─── FIX: เพิ่ม "ลา" ในสถิติด้วย ─────────────────────────────────
         long present = attendanceRepo.countByStudentIdAndStatus(studentId, "มา");
         long late    = attendanceRepo.countByStudentIdAndStatus(studentId, "สาย");
         long absent  = attendanceRepo.countByStudentIdAndStatus(studentId, "ขาด");
+        long leave   = attendanceRepo.countByStudentIdAndStatus(studentId, "ลา");
 
-        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("HH:mm:ss");
+        DateTimeFormatter fmt     = DateTimeFormatter.ofPattern("HH:mm:ss");
+        DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("dd/MM/yyyy");
         List<Map<String, Object>> history = new ArrayList<>();
         for (Attendance a : records) {
             Map<String, Object> item = new HashMap<>();
             item.put("id",          a.getId());
             item.put("sessionId",   a.getSessionId());
             item.put("status",      a.getStatus());
-            item.put("checkinDate", a.getCheckinDate() != null ? a.getCheckinDate().toString() : null);
+            item.put("checkinDate", a.getCheckinDate() != null ? a.getCheckinDate().format(dateFmt) : "—");
             item.put("time",        a.getCheckinDate() != null ? a.getCheckinDate().format(fmt) : "—");
             sessionRepo.findById(a.getSessionId()).ifPresent(s -> {
                 item.put("subject", s.getSubject());
@@ -133,7 +139,8 @@ public class StudentAttendanceController {
                 "present", present,
                 "late",    late,
                 "absent",  absent,
-                "total",   present + late + absent
+                "leave",   leave,
+                "total",   present + late + absent + leave
         ));
         result.put("history", history);
 

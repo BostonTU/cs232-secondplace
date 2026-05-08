@@ -26,11 +26,12 @@
         </a>
         <a href="teacher-leave.html">
           <span class="nav-icon">📋</span> จัดการใบลา
-          <span class="nav-badge" id="leaveNavBadge">3</span>
+          <span class="nav-badge" id="leaveNavBadge" style="display:none;">0</span>
         </a>
         <a href="teacher-analytics.html">
           <span class="nav-icon">📊</span> Analytics
         </a>
+        <a href="teacher-history.html"><span class="nav-icon">🕐</span> ประวัติการเช็คชื่อ</a>
       </nav>
       <div class="sidebar-user">
         <div class="avatar" style="background:var(--dark-navy);color:var(--yellow);">อ</div>
@@ -52,7 +53,7 @@
         <div style="position:relative;">
           <div class="topbar-icon-btn" onclick="toggleNotif()" id="notifBtn">
             🔔
-            <span class="dot-badge" id="notifBadge">3</span>
+            <span class="dot-badge" id="notifBadge" style="display:none;">0</span>
           </div>
           <div class="notif-dropdown" id="notifDropdown" style="display:none;">
             <div class="notif-header">
@@ -72,7 +73,7 @@
       <div class="dash-header-row">
         <div class="page-header" style="margin:0;">
           <h1>🏠 Dashboard</h1>
-          <p class="subtitle" id="dashSubtitle">ภาคเรียน 1/2568 • CS301 วันนี้</p>
+          <p class="subtitle" id="dashSubtitle">ภาคเรียน 1/2568 • กำลังโหลด...</p>
         </div>
         <button class="start-attendance-btn" onclick="window.location.href='teacher-qr.html'">
           ▶ เริ่มเช็คชื่อ / QR

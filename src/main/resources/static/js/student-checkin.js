@@ -4,8 +4,8 @@
    ============================================ */
 
 let cameraStream = null;
-let qrStream     = null;
-let sessionData  = null;
+let qrStream = null;
+let sessionData = null;
 
 // ── Init ──────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -15,15 +15,15 @@ document.addEventListener('DOMContentLoaded', () => {
 	const user = getUser();
 	if (!user) { window.location.href = 'login.html'; return; }
 
-	const idEl   = document.getElementById('studentIdDisplay');
+	const idEl = document.getElementById('studentIdDisplay');
 	const nameEl = document.getElementById('studentNameDisplay');
 	const sbName = document.getElementById('sidebarName');
-	if (idEl)   idEl.textContent   = user.id || user.username || '';
+	if (idEl) idEl.textContent = user.id || user.username || '';
 	if (nameEl) nameEl.textContent = user.name || '';
 	if (sbName) sbName.textContent = (user.name || '').split(' ')[0] || 'นักศึกษา';
 	initSidebarAvatar();
 
-	renderNotifList(MOCK_NOTIFS_STUDENT, 'notifList');
+	loadStudentNotifications();
 	checkLocation();
 
 	document.addEventListener('keydown', e => {
@@ -34,12 +34,12 @@ document.addEventListener('DOMContentLoaded', () => {
 // ── GPS / Location Check ──────────────────────
 function checkLocation() {
 	const statusEl = document.getElementById('locationStatus');
-	const textEl   = document.getElementById('locationText');
+	const textEl = document.getElementById('locationText');
 	if (!statusEl || !textEl) return;
 
 	if (!navigator.geolocation) {
-		statusEl.className    = 'location-status out-range';
-		textEl.textContent    = 'เบราว์เซอร์ไม่รองรับ GPS';
+		statusEl.className = 'location-status out-range';
+		textEl.textContent = 'เบราว์เซอร์ไม่รองรับ GPS';
 		return;
 	}
 
@@ -67,17 +67,26 @@ async function openQRScanOverlay() {
 	overlay.classList.remove('hidden');
 	setFlowStep(1);
 
-	try {
-		qrStream = await navigator.mediaDevices.getUserMedia({
-			video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
-		});
-		const video = document.getElementById('qrVideo');
+	const video = document.getElementById('qrVideo');
+
+	const tryOpen = async (constraints) => {
+		qrStream = await navigator.mediaDevices.getUserMedia({ video: constraints });
 		video.srcObject = qrStream;
 		document.getElementById('qrStatusLabel').textContent = 'กำลังสแกน...';
-		document.getElementById('qrStatusSub').textContent   = 'จัด QR Code ให้อยู่ในกรอบสีเหลือง';
-	} catch (err) {
-		document.getElementById('qrStatusLabel').textContent = '⚠️ ไม่สามารถเปิดกล้องได้';
-		document.getElementById('qrStatusSub').textContent   = 'กรุณากรอก Session Code ในช่องด้านล่างแทน';
+		document.getElementById('qrStatusSub').textContent = 'จัด QR Code ให้อยู่ในกรอบสีเหลือง';
+	};
+
+	try {
+		// ลองกล้องหลังก่อน
+		await tryOpen({ facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } });
+	} catch (err1) {
+		try {
+			// fallback กล้องหน้า
+			await tryOpen({ facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } });
+		} catch (err2) {
+			document.getElementById('qrStatusLabel').textContent = '⚠️ ไม่สามารถเปิดกล้องได้';
+			document.getElementById('qrStatusSub').textContent = 'กรุณากรอก Session Code ในช่องด้านล่างแทน';
+		}
 	}
 }
 
@@ -104,7 +113,7 @@ function simulateQRScan() {
 		return;
 	}
 	document.getElementById('qrStatusLabel').textContent = '✅ สแกน QR สำเร็จ!';
-	document.getElementById('qrStatusSub').textContent   = 'กำลังตรวจสอบ Session...';
+	document.getElementById('qrStatusSub').textContent = 'กำลังตรวจสอบ Session...';
 	setTimeout(() => {
 		closeQROverlay();
 		onQRScanned(inputVal);
@@ -136,18 +145,30 @@ async function openFaceOverlay() {
 }
 
 async function startFaceCamera() {
-	try {
-		cameraStream = await navigator.mediaDevices.getUserMedia({
-			video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
-		});
-		const video = document.getElementById('cameraVideo');
-		video.srcObject = cameraStream;
-		setCameraState('ready');
-	} catch (err) {
-		// ✅ กล้องเปิดไม่ได้ก็ยังเช็คชื่อได้ — แค่ไม่มีรูป
-		setCameraState('ready');
-		showToast('ไม่สามารถเปิดกล้องได้ — กด Check-In เพื่อเช็คชื่อต่อได้เลย', 'warning');
-	}
+    const video = document.getElementById('cameraVideo');
+    try {
+        // ลอง facingMode: user ก่อน, fallback เป็น true (any camera)
+        let stream = null;
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+            });
+        } catch (e1) {
+            stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        }
+        cameraStream = stream;
+        if (video) {
+            video.srcObject = cameraStream;
+            await video.play().catch(() => {}); // force play บน iOS
+        }
+        setCameraState('ready');
+    } catch (err) {
+        console.warn('Camera error:', err);
+        if (video) video.srcObject = null;
+        cameraStream = null;
+        setCameraState('ready');
+        showToast('เปิดกล้องไม่ได้ — กรุณาอนุญาต Camera แล้วลองใหม่ หรือกด Check-In ได้เลย', 'warning');
+    }
 }
 
 function closeFaceOverlay() {
@@ -166,10 +187,10 @@ function retakePhoto() {
 function setCameraState(state, message) {
 	const statusText = document.getElementById('cameraStatusText');
 	const checkInBtn = document.getElementById('checkInBtn');
-	const retakeBtn  = document.getElementById('retakeBtn');
+	const retakeBtn = document.getElementById('retakeBtn');
 	const cameraFrame = document.getElementById('cameraFrame');
 	const successAnim = document.getElementById('successAnim');
-	const scanLine    = document.getElementById('scanLine');
+	const scanLine = document.getElementById('scanLine');
 
 	const states = {
 		ready: {
@@ -195,15 +216,15 @@ function setCameraState(state, message) {
 
 	if (statusText) { statusText.textContent = s.text; statusText.className = `camera-status-text ${s.cls}`; }
 	if (checkInBtn) checkInBtn.style.display = s.showBtns ? 'inline-flex' : 'none';
-	if (retakeBtn)  retakeBtn.style.display  = s.showBtns ? 'inline-flex' : 'none';
+	if (retakeBtn) retakeBtn.style.display = s.showBtns ? 'inline-flex' : 'none';
 	if (cameraFrame) cameraFrame.style.display = s.showCamera ? 'block' : 'none';
-	if (successAnim) successAnim.style.display  = s.showSuccess ? 'flex'  : 'none';
-	if (scanLine)    scanLine.style.display      = s.showCamera  ? 'block' : 'none';
+	if (successAnim) successAnim.style.display = s.showSuccess ? 'flex' : 'none';
+	if (scanLine) scanLine.style.display = s.showCamera ? 'block' : 'none';
 }
 
 async function doCheckIn() {
 	setCameraState('verifying');
-
+	
 	if (!sessionData || !sessionData.sessionCode) {
 		setCameraState('error', 'ไม่พบ Session Code');
 		return;
@@ -211,7 +232,7 @@ async function doCheckIn() {
 
 	try {
 		// ── STEP 1: verify sessionCode → ดึง sessionId จริง ──
-		const verifyRes  = await fetch(`/api/session/verify/${encodeURIComponent(sessionData.sessionCode)}`, {
+		const verifyRes = await fetch(`/api/session/verify/${encodeURIComponent(sessionData.sessionCode)}`, {
 			credentials: 'include'
 		});
 
@@ -221,11 +242,14 @@ async function doCheckIn() {
 		}
 
 		const verifyData = await verifyRes.json();
+		if (verifyData.isLate) {
+		    showToast('⏰ คุณกำลังเช็คชื่อหลังเวลา — จะถูกบันทึกว่า "สาย"', 'warning', 4000);
+		}
 		if (!verifyData.success) {
 			setCameraState('error', verifyData.message || 'Session ไม่ถูกต้อง');
 			return;
 		}
-
+		
 		const realSessionId = verifyData.sessionId;
 
 		// แสดงชื่อวิชาและห้องใน overlay
@@ -234,6 +258,31 @@ async function doCheckIn() {
 
 		// ── STEP 2: ดึง GPS (timeout 5 วิ, fallback null) ──
 		const { lat, lng } = await getPosition();
+		// ── STEP 2.5: ถ่ายรูปและ verify ใบหน้า ──
+		const video = document.getElementById('cameraVideo');
+		let photoKey = null;
+
+		if (video && cameraStream) {
+			const canvas = document.createElement('canvas');
+			canvas.width = video.videoWidth || 640;
+			canvas.height = video.videoHeight || 480;
+			canvas.getContext('2d').drawImage(video, 0, 0);
+			const base64 = canvas.toDataURL('image/jpeg', 0.8);
+
+			const faceRes = await fetch('/api/face/verify', {
+				method: 'POST',
+				credentials: 'include',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ image: base64 })
+			});
+			const faceData = await faceRes.json();
+
+			if (!faceData.faceMatch) {
+				setCameraState('error', faceData.message || 'ใบหน้าไม่ตรง กรุณาลองใหม่');
+				return;
+			}
+			photoKey = faceData.photoKey;
+		}
 
 		// ── STEP 3: POST เช็คชื่อ ──
 		const res = await fetch('/student/attendance/checkin', {
@@ -242,11 +291,11 @@ async function doCheckIn() {
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
 				sessionId: realSessionId,
-				latitude:  lat,
-				longitude: lng
+				latitude: lat,
+				longitude: lng,
+				photoKey: photoKey   // เพิ่ม photoKey
 			}),
 		});
-
 		// ✅ FIX: ตรวจสอบ HTTP status ก่อน parse JSON
 		if (res.status === 401) {
 			// session หมด → redirect login
@@ -312,7 +361,7 @@ function setFlowStep(step) {
 	circles.forEach((c, i) => {
 		if (!c) return;
 		c.className = 'flow-step-circle';
-		if (i + 1 < step)      c.classList.add('done');
+		if (i + 1 < step) c.classList.add('done');
 		else if (i + 1 === step) c.classList.add('active');
 	});
 

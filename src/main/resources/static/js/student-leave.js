@@ -12,6 +12,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     initSidebarAvatar();
   }
 
+  loadStudentNotifications();
+
   const dateInput = document.getElementById('leaveDate');
   if (dateInput) dateInput.value = formatDate();
 
@@ -193,9 +195,9 @@ function openHistoryModal(idx) {
   fileSection.innerHTML = leave.documentUrl
     ? `<div style="margin-top:14px;padding:10px 14px;background:var(--bg-page);border-radius:8px;border:1px solid var(--border);">
         <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:6px;">📎 เอกสารที่แนบไป</div>
-        <a href="/uploads/${leave.documentUrl}" target="_blank" style="display:flex;align-items:center;gap:8px;text-decoration:none;">
+        <a href="${leave.documentUrl}" target="_blank" style="display:flex;align-items:center;gap:8px;text-decoration:none;">
           <span style="font-size:22px;">📄</span>
-          <div style="font-size:13px;font-weight:600;color:var(--blue);">${leave.documentUrl}</div>
+          <div style="font-size:13px;font-weight:600;color:var(--blue);">${leave.documentUrl.split('/').pop().split('_').slice(1).join('_') || 'เอกสาร'}</div>
         </a>
       </div>`
     : `<div style="margin-top:10px;font-size:12px;color:var(--text-muted);">ไม่มีเอกสารแนบ</div>`;

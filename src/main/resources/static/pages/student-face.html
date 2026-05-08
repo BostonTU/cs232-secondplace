@@ -247,10 +247,22 @@
         <button class="topbar-icon-btn" onclick="toggleSidebar()">☰</button>
         <span class="page-title">รูปใบหน้า</span>
       </div>
-      <div class="topbar-right">
-        <div class="topbar-role-chip">นักศึกษา</div>
-        <div class="topbar-icon-btn" onclick="logout()">🚪</div>
-      </div>
+	  <div class="topbar-right">
+	    <div class="topbar-role-chip">นักศึกษา</div>
+	    <div style="position:relative;">
+	      <div class="topbar-icon-btn" onclick="toggleNotif()" id="notifBtn">🔔
+	        <span class="dot-badge" id="notifBadge" style="display:none;">0</span>
+	      </div>
+	      <div class="notif-dropdown" id="notifDropdown" style="display:none;">
+	        <div class="notif-header">
+	          <span>การแจ้งเตือน</span>
+	          <button onclick="markAllRead()" style="font-size:12px;color:var(--blue);font-weight:600;">อ่านทั้งหมด</button>
+	        </div>
+	        <div class="notif-list" id="notifList"></div>
+	      </div>
+	    </div>
+	    <div class="topbar-icon-btn" onclick="logout()">🚪</div>
+	  </div>
     </header>
 
     <!-- ── Main ── -->
@@ -467,6 +479,7 @@
       document.getElementById('sidebarName').textContent =
         user.name?.split(' ')[0] || 'นักศึกษา';
       initSidebarAvatar();
+	  loadStudentNotifications();
 
       uploadHistory = JSON.parse(
         localStorage.getItem('attendx_face_history_' + user.id) || '[]'
@@ -617,9 +630,32 @@
 
     await new Promise(r => setTimeout(r, 400));
 
-    // Mock save: store preview as "S3 URL"
+    // ── Call real API ──────────────────────────
     const dataUrl = document.getElementById('uploadPreviewImg').src;
-    localStorage.setItem('attendx_face_url', dataUrl);
+    try {
+      const res = await fetch('/api/face/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataUrl })
+      });
+      const json = await res.json();
+      if (!json.success) {
+        showToast('อัพโหลดไม่สำเร็จ: ' + (json.message || 'เกิดข้อผิดพลาด'), 'error');
+        progress.style.display = 'none';
+        bar.style.width = '0%';
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        return;
+      }
+    } catch (err) {
+      showToast('ไม่สามารถเชื่อมต่อ server ได้', 'error');
+      progress.style.display = 'none';
+      bar.style.width = '0%';
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      return;
+    }
+
     setCurrentFace(dataUrl);
 	initSidebarAvatar();
 	
