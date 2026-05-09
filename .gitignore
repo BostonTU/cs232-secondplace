@@ -4,6 +4,10 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+# Compiled class files
+*.class
+bin/
+
 ### STS ###
 .apt_generated
 .classpath
