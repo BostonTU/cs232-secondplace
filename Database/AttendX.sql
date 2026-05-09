@@ -40,6 +40,7 @@ CREATE TABLE [dbo].[Students] (
     [student_name]      NVARCHAR(100) NOT NULL,
     [email]             NVARCHAR(100) NULL,
     [profile_image_url] NVARCHAR(255) NULL,
+    [face_photo_key]    NVARCHAR(255) NULL,
     [created_at]        DATETIME      NOT NULL DEFAULT GETDATE(),
     CONSTRAINT PK_Students PRIMARY KEY (student_id),
     CONSTRAINT FK_Students_users FOREIGN KEY (student_id) REFERENCES [dbo].[users](username)
