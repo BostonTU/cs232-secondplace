@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AttendX — Dashboard อาจารย์</title>
+  <link rel="stylesheet" href="../css/global.css" />
+  <link rel="stylesheet" href="../css/dashboard.css" />
+</head>
+<body>
+
+  <div class="app-layout">
+
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-text">Attend<span>X</span></div>
+      </div>
+      <div class="sidebar-section-label">เมนูอาจารย์</div>
+      <nav class="sidebar-nav">
+        <a href="teacher-dashboard.html" class="active">
+          <span class="nav-icon">🏠</span> Dashboard
+        </a>
+        <a href="teacher-qr.html">
+          <span class="nav-icon">📷</span> QR Generator
+        </a>
+        <a href="teacher-leave.html">
+          <span class="nav-icon">📋</span> จัดการใบลา
+          <span class="nav-badge" id="leaveNavBadge">3</span>
+        </a>
+        <a href="teacher-analytics.html">
+          <span class="nav-icon">📊</span> Analytics
+        </a>
+      </nav>
+      <div class="sidebar-user">
+        <div class="avatar" style="background:var(--dark-navy);color:var(--yellow);">อ</div>
+        <div class="user-info">
+          <div class="user-name">อาจารย์ (ด)</div>
+          <div class="user-role">อาจารย์ประจำหลักสูตร CS</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── Topbar ── -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="topbar-icon-btn" onclick="toggleSidebar()">☰</button>
+        <span class="page-title">Dashboard</span>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-role-chip" style="background:var(--dark-navy);">อาจารย์</div>
+        <div style="position:relative;">
+          <div class="topbar-icon-btn" onclick="toggleNotif()" id="notifBtn">
+            🔔
+            <span class="dot-badge" id="notifBadge">3</span>
+          </div>
+          <div class="notif-dropdown" id="notifDropdown" style="display:none;">
+            <div class="notif-header">
+              <span>การแจ้งเตือน</span>
+              <button onclick="markAllRead()" style="font-size:12px;color:var(--yellow);font-weight:600;">อ่านทั้งหมด</button>
+            </div>
+            <div class="notif-list" id="notifList"></div>
+          </div>
+        </div>
+        <div class="topbar-icon-btn" onclick="logout()">🚪</div>
+      </div>
+    </header>
+
+    <!-- ── Main Content ── -->
+    <main class="main-content">
+
+      <div class="dash-header-row">
+        <div class="page-header" style="margin:0;">
+          <h1>🏠 Dashboard</h1>
+          <p class="subtitle" id="dashSubtitle">ภาคเรียน 1/2568 • CS301 วันนี้</p>
+        </div>
+        <button class="start-attendance-btn" onclick="window.location.href='teacher-qr.html'">
+          ▶ เริ่มเช็คชื่อ / QR
+        </button>
+      </div>
+
+      <!-- Stats Cards -->
+      <div class="stats-grid" id="statsGrid">
+        <!-- populated by JS -->
+      </div>
+
+      <!-- Student Table -->
+      <div class="card">
+        <div style="padding:20px 22px;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+          <div style="font-size:16px;font-weight:700;">รายชื่อนักศึกษา</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-secondary btn-sm" onclick="filterStudents('all')" id="filter-all">ทั้งหมด</button>
+            <button class="btn btn-secondary btn-sm" onclick="filterStudents('present')" id="filter-present">✅ มาเรียน</button>
+            <button class="btn btn-secondary btn-sm" onclick="filterStudents('late')" id="filter-late">⏰ สาย</button>
+            <button class="btn btn-secondary btn-sm" onclick="filterStudents('absent')" id="filter-absent">❌ ขาด</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ชื่อ-นามสกุล</th>
+                <th>รหัส</th>
+                <th>สถานะ</th>
+                <th>เวลา CHECK-IN</th>
+                <th>% เข้าเรียน</th>
+              </tr>
+            </thead>
+            <tbody id="studentTableBody">
+              <!-- populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="../js/utils.js"></script>
+  <script src="../js/teacher-dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AttendX — QR Generator</title>
+  <link rel="stylesheet" href="../css/global.css" />
+  <link rel="stylesheet" href="../css/dashboard.css" />
+  <!-- QRCode.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+
+  <div class="app-layout">
+
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-text">Attend<span>X</span></div>
+      </div>
+      <div class="sidebar-section-label">เมนูอาจารย์</div>
+      <nav class="sidebar-nav">
+        <a href="teacher-dashboard.html">
+          <span class="nav-icon">🏠</span> Dashboard
+        </a>
+        <a href="teacher-qr.html" class="active">
+          <span class="nav-icon">📷</span> QR Generator
+        </a>
+        <a href="teacher-leave.html">
+          <span class="nav-icon">📋</span> จัดการใบลา
+          <span class="nav-badge">3</span>
+        </a>
+        <a href="teacher-analytics.html">
+          <span class="nav-icon">📊</span> Analytics
+        </a>
+      </nav>
+      <div class="sidebar-user">
+        <div class="avatar" style="background:var(--dark-navy);color:var(--yellow);">อ</div>
+        <div class="user-info">
+          <div class="user-name">อาจารย์ (ด)</div>
+          <div class="user-role">อาจารย์ประจำหลักสูตร CS</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── Topbar ── -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="topbar-icon-btn" onclick="toggleSidebar()">☰</button>
+        <span class="page-title">QR Generator</span>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-role-chip" style="background:var(--dark-navy);">อาจารย์</div>
+        <div class="topbar-icon-btn" onclick="logout()">🚪</div>
+      </div>
+    </header>
+
+    <!-- ── Main Content ── -->
+    <main class="main-content">
+
+      <div class="page-header">
+        <h1>📷 QR Generator</h1>
+        <p class="subtitle">สร้าง QR Code สำหรับเช็คชื่อ</p>
+      </div>
+
+      <!-- Start Session form (shown when no session active) -->
+      <div class="card" id="startSessionCard" style="padding:28px;max-width:480px;margin-bottom:24px;">
+        <h3 style="font-size:16px;font-weight:700;margin-bottom:18px;">⚙️ ตั้งค่า Session</h3>
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div class="input-group">
+            <label>วิชา</label>
+            <select id="sessionSubject">
+              <option value="CS301">CS301 - Web Application Development</option>
+              <option value="CS302">CS302 - Database Systems</option>
+              <option value="CS303">CS303 - Software Engineering</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label>ห้องเรียน</label>
+            <div class="input-wrap">
+              <span class="icon">📍</span>
+              <input type="text" id="sessionRoom" value="SC-301" placeholder="เช่น SC-301" />
+            </div>
+          </div>
+          <div class="input-group">
+            <label>เวลาหมดอายุ (นาที)</label>
+            <div class="input-wrap">
+              <span class="icon">⏱</span>
+              <input type="number" id="sessionDuration" value="5" min="1" max="60" />
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="startSession()" style="margin-top:4px;">
+            ▶ เริ่ม Session
+          </button>
+        </div>
+      </div>
+
+      <!-- Active Session (shown when session is running) -->
+      <div id="activeSessionWrap" style="display:none;">
+        <div class="qr-page-wrap">
+
+          <!-- QR Display -->
+          <div class="qr-display-card">
+            <div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:4px;" id="qrCourseLabel">CS301</div>
+            <div style="font-size:16px;font-weight:700;margin-bottom:4px;" id="qrRoomLabel">ห้อง SC-301</div>
+
+            <div class="qr-code-box" id="qrCodeBox">
+              <!-- QR generated here -->
+            </div>
+
+            <div class="qr-timer" id="qrTimer">05:00</div>
+            <div class="qr-course-label" id="qrTimerLabel">เหลือเวลา</div>
+
+            <div class="qr-actions">
+              <button class="btn btn-secondary btn-sm" onclick="copySessionLink()" id="copyLinkBtn">
+                📋 คัดลอก Link
+              </button>
+              <button class="btn btn-danger btn-sm" onclick="endSession()">
+                ⏹ จบ Session
+              </button>
+            </div>
+          </div>
+
+          <!-- Session Info + Checkins -->
+          <div class="qr-info-card">
+            <h3>ข้อมูล Session</h3>
+
+            <div class="info-row">
+              <span class="ir-label">Session ID</span>
+              <span class="ir-value" id="infoSessionId" style="font-family:monospace;font-size:12px;">—</span>
+            </div>
+            <div class="info-row">
+              <span class="ir-label">วิชา</span>
+              <span class="ir-value" id="infoSubject">—</span>
+            </div>
+            <div class="info-row">
+              <span class="ir-label">ห้อง</span>
+              <span class="ir-value" id="infoRoom">—</span>
+            </div>
+            <div class="info-row">
+              <span class="ir-label">เริ่มเวลา</span>
+              <span class="ir-value" id="infoStart">—</span>
+            </div>
+            <div class="info-row">
+              <span class="ir-label">เช็คชื่อแล้ว</span>
+              <span class="ir-value" id="infoCheckins">0 คน</span>
+            </div>
+
+            <div class="session-checkins">
+              <h4>✅ เช็คชื่อแล้ว</h4>
+              <div class="checkin-mini-list" id="checkinMiniList">
+                <div style="font-size:13px;color:var(--text-muted);padding:8px 0;">ยังไม่มีนักศึกษาเช็คชื่อ</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="../js/utils.js"></script>
+  <script src="../js/teacher-qr.js"></script>
+</body>
+</html>
